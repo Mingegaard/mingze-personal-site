@@ -7,7 +7,7 @@ import { ApiError, createRpc, digest, makeCursor, readCursor } from '../function
 import { PROFILE } from '../functions/personal-chat/profile.ts';
 
 const allowedOrigin = 'https://mingegaard.github.io';
-const values = { ALLOWED_ORIGINS: allowedOrigin, REQUEST_HASH_SALT: 'x'.repeat(64), PERSONAL_MAAS_API_KEY: 'test-only-provider-key' };
+const values = { ALLOWED_ORIGINS: allowedOrigin, REQUEST_HASH_SALT: 'x'.repeat(64), PERSONAL_DEEPSEEK_API_KEY: 'test-only-provider-key' };
 const env = name => values[name];
 const id = number => `00000000-0000-4000-8000-${String(number).padStart(12, '0')}`;
 const token = 'a'.repeat(64);
@@ -85,7 +85,7 @@ test('chat reserves budget before its single upstream call and preserves the ful
     rpc: async (name, params) => { events.push(name); if (name === 'site_reserve_ai_request') { assert.ok(params.p_reserved_tokens > 4096); return id(99); } },
     fetchImpl: async (url, options) => {
       events.push('upstream'); payload = JSON.parse(options.body);
-      assert.equal(url, 'https://maas.devops.xiaohongshu.com/gateway-v2/v1/chat/completions');
+      assert.equal(url, 'https://api.deepseek.com/chat/completions');
       assert.equal(options.headers.Authorization, 'Bearer test-only-provider-key');
       return Response.json({ choices: [{ message: { content: '你好' } }] });
     },
@@ -93,12 +93,78 @@ test('chat reserves budget before its single upstream call and preserves the ful
   const response = await handler(req({ messages: [{ role: 'user', content: '你现在在哪里工作？', tool_calls: ['bad'] }], tools: ['bad'] }));
   assert.deepEqual(await response.json(), { content: '你好' });
   assert.deepEqual(events, ['site_reserve_ai_request', 'upstream', 'site_finish_ai_request']);
-  assert.equal(payload.model, 'deepseek-v4-flash');
+  assert.equal(payload.model, 'deepseek-flash');
+  assert.equal(payload.max_tokens, 1024);
+  assert.deepEqual(payload.thinking, { type: 'disabled' });
+  assert.equal(payload.reasoning_effort, undefined);
   assert.equal(payload.messages[0].role, 'system');
   assert.ok(payload.messages[0].content.startsWith(profile.trim()));
   assert.match(payload.messages[0].content, /RED Product Trainee/);
   assert.deepEqual(payload.messages[1], { role: 'user', content: '你现在在哪里工作？' });
   assert.equal(payload.tools, undefined);
+});
+
+test('chat migrates legacy cached selections to economical non-thinking mode and bounds explicit reasoning', async () => {
+  for (const [model, requestedEffort, effectiveEffort, cap] of [
+    ['deepseek-v4-flash', 'max', 'off', 1024],
+    ['deepseek-v4-flash', 'high', 'off', 1024],
+    ['deepseek-flash', 'low', 'low', 4096],
+    ['deepseek-flash', 'high', 'high', 4096],
+    ['deepseek-flash', 'max', 'max', 4096],
+  ]) {
+    let payload, reserved;
+    const handler = createChatHandler({ env, profile: 'profile',
+      rpc: async (name, params) => { if (name === 'site_reserve_ai_request') { reserved = params.p_reserved_tokens; return id(1); } },
+      fetchImpl: async (_, options) => { payload = JSON.parse(options.body); return Response.json({ choices: [{ message: { content: '好' } }] }); },
+    });
+    assert.equal((await handler(req({ model, reasoningEffort: requestedEffort, messages: [{ role: 'user', content: 'hello' }] }))).status, 200);
+    assert.equal(payload.model, 'deepseek-flash');
+    assert.equal(payload.max_tokens, cap);
+    assert.deepEqual(payload.thinking, { type: effectiveEffort === 'off' ? 'disabled' : 'enabled' });
+    assert.equal(payload.reasoning_effort, effectiveEffort === 'off' ? undefined : effectiveEffort);
+    assert.equal(reserved, new TextEncoder().encode(JSON.stringify(payload.messages)).length + cap + 1024);
+  }
+});
+
+test('chat exposes only nonnegative safe integer usage counters from the provider', async () => {
+  const handler = createChatHandler({ env, profile: 'profile', rpc: async () => id(1),
+    fetchImpl: async () => Response.json({ choices: [{ message: { content: '好' } }], usage: {
+      prompt_tokens: 14, completion_tokens: 1, total_tokens: 15, prompt_cache_hit_tokens: 0,
+      prompt_cache_miss_tokens: 14, provider_secret: 'private', nested: { secret: 'private' },
+    } }),
+  });
+  assert.deepEqual(await (await handler(req({ messages: [{ role: 'user', content: 'hello' }] }))).json(), {
+    content: '好', usage: { prompt_tokens: 14, completion_tokens: 1, total_tokens: 15, prompt_cache_hit_tokens: 0, prompt_cache_miss_tokens: 14 },
+  });
+  const invalid = createChatHandler({ env, profile: 'profile', rpc: async () => id(1),
+    fetchImpl: async () => Response.json({ choices: [{ message: { content: '好' } }], usage: {
+      prompt_tokens: '14', completion_tokens: -1, total_tokens: 1.5, prompt_cache_hit_tokens: Number.MAX_SAFE_INTEGER + 1,
+    } }),
+  });
+  assert.deepEqual(await (await invalid(req({ messages: [{ role: 'user', content: 'hello' }] }))).json(), { content: '好' });
+});
+
+test('chat reports safe timeout and network errors in fetch and response body reads, without retrying paid requests', async () => {
+  for (const phase of ['fetch', 'body']) {
+    for (const [error, status, code] of [
+      [new DOMException('private upstream detail', 'TimeoutError'), 504, 'timeout'],
+      [new TypeError('private network detail'), 502, 'upstream-unreachable'],
+      [new SyntaxError('private malformed response'), 502, 'upstream'],
+    ]) {
+      const events = [];
+      const handler = createChatHandler({ env, profile: 'profile', rpc: async name => { events.push(name); return id(1); },
+        fetchImpl: async () => {
+          events.push('upstream');
+          if (phase === 'fetch') throw error;
+          return { ok: true, json: async () => { throw error; } };
+        },
+      });
+      const response = await handler(req({ messages: [{ role: 'user', content: 'hello' }] }));
+      assert.equal(response.status, status);
+      assert.deepEqual(await response.json(), { error: code });
+      assert.deepEqual(events, ['site_reserve_ai_request', 'upstream', 'site_finish_ai_request']);
+    }
+  }
 });
 
 test('chat quota rejection prevents paid calls and upstream failure still finishes the lease', async () => {

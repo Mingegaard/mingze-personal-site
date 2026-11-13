@@ -6,7 +6,7 @@
 
 - `ALLOWED_ORIGINS`：逗号分隔的完整 Origin，例如 `https://gaomingze.com,https://www.gaomingze.com,http://127.0.0.1:3080`；不要包含 URL 路径。
 - `REQUEST_HASH_SALT`：至少 32 字符的随机服务端秘密，用于请求来源摘要。
-- `PERSONAL_MAAS_API_KEY`：既有 MaaS 模型密钥，只设置为函数秘密。
+- `PERSONAL_DEEPSEEK_API_KEY`：DeepSeek 官方 API 密钥，只设置为函数秘密。
 - `AI_DAILY_REQUEST_LIMIT`：全站每天最多请求数，默认 50，支持 1–500。
 - `AI_DAILY_TOKEN_LIMIT`：每天保守 Token 预算，默认 500000，支持 1–2000000。每次按输入 UTF-8 字节数和输出上限预留，失败也保留预留额度，故不是账单的实际 Token 用量。
 
@@ -30,7 +30,9 @@
 
 ## AI 接口
 
-`POST personal-chat` 接收原聊天 `{messages,model,reasoningEffort}`，同时带 `X-Visitor-Token`。仅允许 `deepseek-v4-flash`，UI 显示名由前端决定；最多 24 条、总计 50000 字符，仅 user/assistant 文本，服务端插入个人 Prompt。保留 off/low/high/max 映射；回复 `{content}`。110 秒上游超时适配 Edge Function 请求时限。
+`POST personal-chat` 接收原聊天 `{messages,model,reasoningEffort}`，同时带 `X-Visitor-Token`。调用 DeepSeek 官方 `https://api.deepseek.com/chat/completions`，仅使用 `deepseek-flash`，UI 显示名由前端决定；最多 24 条、总计 50000 字符，仅 user/assistant 文本，服务端插入个人 Prompt。默认关闭推理，输出最多 1024 Token；显式选择 low/high/max 推理时最多 4096 Token。旧客户端的 `deepseek-v4-flash` 请求兼容为当前模型并强制关闭推理，避免缓存的高强度配置延续费用。
+
+回复 `{content,usage?}`；`usage` 只包含供应商返回的非负安全整数计数：`prompt_tokens`、`completion_tokens`、`total_tokens`、`prompt_cache_hit_tokens`、`prompt_cache_miss_tokens`。110 秒上游超时返回 `timeout` (504)，网络不可达返回 `upstream-unreachable` (502)，不自动重试付费请求或透传供应商错误详情。
 
 全站最多同时 3 个模型请求，单访客 1 个；每访客每分钟 3 次、每天 15 次；来源每小时 30 次。预留账本与并发租约在一个事务内更新，跨多个 Edge Function 实例共享，不能通过并发绕过；租约 3 分钟自动过期。中止请求不保证上游停止计费，因此仍计入当日预算。
 

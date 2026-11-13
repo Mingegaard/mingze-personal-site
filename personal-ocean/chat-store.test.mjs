@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createChatStore } from './src/chat-store.js';
+import { CHAT_MODELS, DEFAULT_SELECTION } from './chat-options.mjs';
 
 test('model and effort survive reload, follow each conversation, and reach the request', async t => {
   const values = new Map();
@@ -12,7 +13,7 @@ test('model and effort survive reload, follow each conversation, and reach the r
   const requests=[];
   t.mock.method(globalThis,'fetch',async(_,options)=>{requests.push(JSON.parse(options.body));return Response.json({content:'ok'});});
   let store=createChatStore();
-  const selection={model:'deepseek-v4-flash',reasoningEffort:'high'};
+  const selection={model:'deepseek-flash',reasoningEffort:'high'};
   store.setSelection(selection); store.dispose();
   store=createChatStore();
   assert.deepEqual(store.getSnapshot().selection,selection);
@@ -20,7 +21,7 @@ test('model and effort survive reload, follow each conversation, and reach the r
   const first=store.getSnapshot().selected;
   assert.equal(requests[0].model,selection.model);
   assert.equal(requests[0].reasoningEffort,selection.reasoningEffort);
-  store.newChat(); store.setSelection({model:'deepseek-v4-flash',reasoningEffort:'off'});
+  store.newChat(); store.setSelection({model:'deepseek-flash',reasoningEffort:'off'});
   store.draft('second'); await store.send();
   store.select(first);
   assert.deepEqual(store.getSnapshot().selection,selection);
@@ -214,25 +215,76 @@ test('archiving or deleting an active chat prevents a late response from revivin
 });
 
 
-test('migrates previous model choices to Mingze while retaining effort and messages', async t => {
+test('migrates all unversioned model choices to official Flash with reasoning off, preserving history', async t => {
   const values=storageFor(t);
   let payload;
   t.mock.method(globalThis,'fetch',async(_,options)=>{payload=JSON.parse(options.body);return Response.json({content:'ok'});});
-  for (const previousModel of ['deepseek-flash','deepseek-v4-pro']) {
-  const oldSelection={model:previousModel,reasoningEffort:'high'};
-  const messages=[{role:'user',content:'saved history'}];
-  values.clear();
-  values.set('personal-ocean.chats.v1.selection',JSON.stringify(oldSelection));
-  values.set('personal-ocean.chats.v1.projects',JSON.stringify({projects:[],chats:[{id:'old',title:'Old',messages,selection:oldSelection}]}));
-  const store=createChatStore();
-  assert.deepEqual(store.getSnapshot().selection,{model:'deepseek-v4-flash',reasoningEffort:'high'});
-  store.select('old');
-  assert.deepEqual(store.getSnapshot().chats[0].messages,messages);
-  assert.deepEqual(store.getSnapshot().selection,{model:'deepseek-v4-flash',reasoningEffort:'high'});
-  store.setSelection(oldSelection);
-  assert.equal(store.getSnapshot().selection.model,'deepseek-v4-flash');
-  store.draft('continue');await store.send();
-  assert.equal(payload.model,'deepseek-v4-flash');assert.equal(payload.reasoningEffort,'high');
-  store.dispose();
+  assert.deepEqual(CHAT_MODELS,[{id:'deepseek-flash',name:'mingzev1.0'}]);
+  assert.deepEqual(DEFAULT_SELECTION,{model:'deepseek-flash',reasoningEffort:'off'});
+  for (const previousModel of ['deepseek-flash','deepseek-v4-flash','deepseek-v4-pro']) {
+    for (const reasoningEffort of ['off','low','high','max']) {
+      const oldSelection={model:previousModel,reasoningEffort};
+      const messages=[{role:'user',content:'saved history'}];
+      values.clear();
+      values.set('personal-ocean.chats.v1.selection',JSON.stringify(oldSelection));
+      values.set('personal-ocean.chats.v1.projects',JSON.stringify({projects:[{id:'project',name:'Keep project'}],chats:[{id:'old',title:'Old',messages,selection:oldSelection,projectId:'project',pinned:true}]}));
+      const store=createChatStore();
+      assert.deepEqual(store.getSnapshot().selection,DEFAULT_SELECTION);
+      store.select('old');
+      assert.deepEqual(store.getSnapshot().chats[0].messages,messages);
+      assert.equal(store.getSnapshot().chats[0].pinned,true);
+      assert.equal(store.getSnapshot().projectId,'project');
+      assert.deepEqual(store.getSnapshot().selection,DEFAULT_SELECTION);
+      store.draft('continue');await store.send();
+      assert.equal(payload.model,'deepseek-flash');assert.equal(payload.reasoningEffort,'off');
+      assert.equal(payload.selectionVersion,undefined);
+      store.dispose();
+      const restored=createChatStore();
+      restored.select('old');
+      assert.deepEqual(restored.getSnapshot().selection,DEFAULT_SELECTION);
+      restored.dispose();
+    }
   }
+});
+
+test('manual effort choices on the new model survive repeated reloads without reviving old conversation settings', async t => {
+  const values=storageFor(t,[['personal-ocean.chats.v1.projects',JSON.stringify({projects:[],chats:[
+    {id:'old',title:'Unopened old chat',messages:[],selection:{model:'deepseek-flash',reasoningEffort:'max'}},
+    {id:'missing',title:'Old chat without settings',messages:[]},
+  ]})]]);
+  const calls=[];
+  const requestChat=async payload=>{calls.push(payload);return {content:'mock reply'};};
+  let store=createChatStore({requestChat});
+  for(const reasoningEffort of ['low','high','max','off']) {
+    const selected={model:'deepseek-flash',reasoningEffort};
+    store.newChat();store.setSelection(selected);
+    store.draft('manual '+reasoningEffort);await store.send();
+    const id=store.getSnapshot().selected;
+    assert.equal(calls.at(-1).model,'deepseek-flash');
+    assert.equal(calls.at(-1).reasoningEffort,reasoningEffort);
+    assert.equal(calls.at(-1).selectionVersion,undefined);
+    const persisted=JSON.parse(values.get('personal-ocean.chats.v1.selection'));
+    assert.equal(persisted.selectionVersion,2);
+    store.dispose();store=createChatStore({requestChat});
+    assert.deepEqual(store.getSnapshot().selection,selected);
+    store.select(id);assert.deepEqual(store.getSnapshot().selection,selected);
+    store.select('old');assert.deepEqual(store.getSnapshot().selection,DEFAULT_SELECTION);
+    store.select('missing');assert.deepEqual(store.getSnapshot().selection,DEFAULT_SELECTION);
+    store.select(id);assert.deepEqual(store.getSnapshot().selection,selected);
+  }
+  store.dispose();
+});
+
+test('failed migration saves never mark stale preferences as approved current choices', t => {
+  const oldSelection={model:'deepseek-flash',reasoningEffort:'max'};
+  storageFor(t,[['personal-ocean.chats.v1.selection',JSON.stringify(oldSelection)],
+    ['personal-ocean.chats.v1.projects',JSON.stringify({projects:[],chats:[{id:'old',title:'Old',messages:[],selection:oldSelection}]})]]);
+  t.mock.method(localStorage,'setItem',()=>{throw new Error('quota');});
+  let store=createChatStore();
+  assert.deepEqual(store.getSnapshot().selection,DEFAULT_SELECTION);
+  store.setSelection({model:'deepseek-flash',reasoningEffort:'high'});
+  store.dispose();store=createChatStore();
+  assert.deepEqual(store.getSnapshot().selection,DEFAULT_SELECTION);
+  store.select('old');assert.deepEqual(store.getSnapshot().selection,DEFAULT_SELECTION);
+  store.dispose();
 });

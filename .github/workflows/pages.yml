@@ -6,6 +6,7 @@ on:
     paths:
       - 'public-site/**'
       - 'personal-ocean/src/**'
+      - 'personal-ocean/chat-options.mjs'
       - 'ascii-sharks/src/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:

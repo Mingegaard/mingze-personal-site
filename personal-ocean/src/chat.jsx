@@ -4,6 +4,15 @@ import { ChatRow, useManagementDialog } from './chat-management.jsx';
 import { orderedChats } from './chat-store.js';
 import { ChatModelSelect } from './chat-model-select.jsx';
 
+const CHAT_ERROR_KEYS = new Map([
+  ['balance', 'chatBalance'],
+  ['timeout', 'chatTimeout'],
+  ['upstream-unreachable', 'chatConnectionError'],
+  ['busy', 'chatBusy'],
+  ['rate-limit', 'chatRateLimited'],
+  ['daily-limit', 'chatDailyLimit'],
+]);
+
 function fitComposer(input) {
   if (!input) return;
   input.style.height = 'auto';
@@ -55,7 +64,7 @@ export function PersonalChat({store, t}) {
           {state.busy ? <button className="personal-chat-submit" type="button" aria-label={t('chatStop')} onClick={store.stop}>■</button> :
             <button className="personal-chat-submit" type="submit" disabled={!state.draft.trim()} aria-label={t('chatSend')}>↑</button>}
         </div>
-        {state.error && <p className="personal-chat-error" role="alert">{t(state.error === 'balance' ? 'chatBalance' : 'chatError')}</p>}
+        {state.error && <p className="personal-chat-error" role="alert">{t(CHAT_ERROR_KEYS.get(state.error) ?? 'chatError')}</p>}
       </form>
       {state.storageError && <p className="personal-chat-error" role="alert">{t('chatStorageError')}</p>}
     </div>

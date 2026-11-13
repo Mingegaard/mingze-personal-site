@@ -70,6 +70,19 @@ const balanceCopy = {
 };
 for (const [locale, value] of Object.entries(balanceCopy)) profileLocales[locale].chatBalance = value;
 
+const chatFailureCopy = {
+ zh:['模型响应超时，请稍后重试。','暂时无法连接模型服务，请稍后重试。','上一条回复仍在处理中，请稍等。','请求过于频繁，请稍后重试。','今日AI使用额度已用完，请稍后再试。'],
+ en:['The model response timed out. Please try again shortly.','Unable to connect to the model service. Please try again shortly.','Your previous reply is still being processed. Please wait.','Too many requests. Please try again shortly.','Today’s AI usage limit has been reached. Please try again later.'],
+ ja:['モデルの応答がタイムアウトしました。後でもう一度お試しください。','モデルサービスに接続できません。後でもう一度お試しください。','前の返信を処理中です。しばらくお待ちください。','リクエストが多すぎます。後でもう一度お試しください。','本日のAI利用上限に達しました。後でもう一度お試しください。'],
+ es:['La respuesta del modelo agotó el tiempo de espera. Inténtalo de nuevo más tarde.','No se pudo conectar con el servicio del modelo. Inténtalo de nuevo más tarde.','La respuesta anterior sigue en proceso. Espera un momento.','Demasiadas solicitudes. Inténtalo de nuevo más tarde.','Se alcanzó el límite diario de uso de IA. Inténtalo de nuevo más tarde.'],
+ fr:['Le délai de réponse du modèle est dépassé. Réessayez dans un instant.','Impossible de joindre le service du modèle. Réessayez dans un instant.','La réponse précédente est encore en cours. Veuillez patienter.','Trop de demandes. Réessayez dans un instant.','La limite quotidienne d’utilisation de l’IA est atteinte. Réessayez plus tard.'],
+ de:['Zeitüberschreitung bei der Modellantwort. Bitte später erneut versuchen.','Der Modelldienst ist nicht erreichbar. Bitte später erneut versuchen.','Die vorherige Antwort wird noch verarbeitet. Bitte warten.','Zu viele Anfragen. Bitte später erneut versuchen.','Das tägliche KI-Nutzungslimit ist erreicht. Bitte später erneut versuchen.'],
+ ru:['Время ожидания ответа модели истекло. Попробуйте позже.','Не удалось подключиться к сервису модели. Попробуйте позже.','Предыдущий ответ ещё обрабатывается. Подождите немного.','Слишком много запросов. Попробуйте позже.','Дневной лимит использования ИИ исчерпан. Попробуйте позже.'],
+ pt:['O tempo de resposta do modelo esgotou-se. Tente novamente mais tarde.','Não foi possível ligar ao serviço do modelo. Tente novamente mais tarde.','A resposta anterior ainda está a ser processada. Aguarde um momento.','Demasiados pedidos. Tente novamente mais tarde.','O limite diário de utilização de IA foi atingido. Tente novamente mais tarde.'],
+};
+for (const [locale, values] of Object.entries(chatFailureCopy)) Object.assign(profileLocales[locale],
+ Object.fromEntries(['chatTimeout','chatConnectionError','chatBusy','chatRateLimited','chatDailyLimit'].map((key,i)=>[key,values[i]])));
+
 const projectCopy = {
  zh:['项目','新建项目','项目名称','例如：个人网站','将相关对话整理在一起。无需关联本地文件夹。','取消','新建对话','在「{name}」中新建对话','项目对话','还没有对话','新建一个对话，开始讨论这个项目。','最近','浏览器存储空间不足，最新更改尚未保存。'],
  en:['Projects','New project','Project name','e.g. Personal website','Keep related conversations together. No local folder required.','Cancel','New chat','New chat in {name}','Project conversations','No conversations yet','Start a new chat to discuss this project.','Recent','Browser storage is full. Your latest changes have not been saved.'],

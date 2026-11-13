@@ -1,5 +1,9 @@
 import { DEFAULT_SELECTION, validSelection, normalizeSelection } from '../chat-options.mjs';
 const KEY = 'personal-ocean.chats.v1';
+const SELECTION_VERSION = 2;
+// Version each preference and conversation, including historic uses of the same model ID.
+// Only choices explicitly saved by this version may restore an enabled reasoning level.
+const restoreSelection = (value, version) => version === SELECTION_VERSION ? normalizeSelection(value) : {...DEFAULT_SELECTION};
 export const orderedChats = chats => [...chats].sort((a,b)=>Number(!!b.pinned)-Number(!!a.pinned));
 export function createChatStore({requestChat} = {}) {
   let saved = [], projects = [];
@@ -12,11 +16,11 @@ export function createChatStore({requestChat} = {}) {
     const projectIds = new Set(projects.map(p => p.id));
     if (Array.isArray(legacy)) saved = legacy
       .filter(c => c && typeof c.id === 'string' && typeof c.title === 'string' && Array.isArray(c.messages))
-      .map(c => ({...c, ...(c.selection?{selection:normalizeSelection(c.selection)}:{}), projectId:projectIds.has(c.projectId) ? c.projectId : null,
+      .map(c => ({...c, selection:restoreSelection(c.selection,c.selectionVersion), selectionVersion:SELECTION_VERSION, projectId:projectIds.has(c.projectId) ? c.projectId : null,
         messages:c.messages.filter(m => ['user','assistant'].includes(m?.role) && typeof m.content === 'string')}));
   } catch {}
   let selection = DEFAULT_SELECTION;
-  try { const savedSelection = JSON.parse(localStorage.getItem(KEY + '.selection')); selection = normalizeSelection(savedSelection); } catch {}
+  try { const savedSelection = JSON.parse(localStorage.getItem(KEY + '.selection')); selection = restoreSelection(savedSelection,savedSelection?.selectionVersion); } catch {}
   let state = { chats:saved, projects, expandedProjects:[], projectId:null, projectView:false, selected:null, busy:false, error:null, storageError:false, draft:'', selection }; 
   const listeners = new Set();
   let controller;
@@ -46,8 +50,9 @@ export function createChatStore({requestChat} = {}) {
     draft: draft => publish({draft}),
     setSelection: selection => {
       if (!validSelection(selection) || state.busy) return;
-      try { localStorage.setItem(KEY + '.selection', JSON.stringify(selection)); } catch {}
-      publish({selection, chats:state.chats.map(c => c.id === state.selected ? {...c, selection} : c)});
+      selection = normalizeSelection(selection);
+      try { localStorage.setItem(KEY + '.selection', JSON.stringify({...selection,selectionVersion:SELECTION_VERSION})); } catch {}
+      publish({selection, chats:state.chats.map(c => c.id === state.selected ? {...c, selection, selectionVersion:SELECTION_VERSION} : c)});
     },
     createProject: name => {
       name = name.trim().slice(0,80);
@@ -132,6 +137,7 @@ export function createChatStore({requestChat} = {}) {
       const previous = state.chats.find(c => c.id === state.selected);
       const chat = {...(previous ?? {id:crypto.randomUUID(), title:content.slice(0,36), projectId:state.projectId, messages:[]})};
       chat.selection = {...state.selection};
+      chat.selectionVersion = SELECTION_VERSION;
       chat.messages = [...chat.messages, {role:'user',content}];
       const pending = new AbortController(); controller = pending;
       publish({chats:[chat,...state.chats.filter(c => c.id !== chat.id)],selected:chat.id,draft:'',busy:true,error:null});
