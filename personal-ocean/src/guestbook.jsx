@@ -50,7 +50,7 @@ function MessageComposer({ t, onSubmit, target, onCancel }) {
   const [error,setError] = useState('');
   const [notice,setNotice] = useState('');
   const input = useRef(null), pending = useRef(false), mounted = useRef(true);
-  const hintId = useId(), errorId = useId();
+  const errorId = useId();
   const length = [...draft].length;
   useEffect(() => { mounted.current=true; return () => {mounted.current=false;}; },[]);
   useEffect(() => { if(target) input.current?.focus(); },[target?.id]);
@@ -66,9 +66,9 @@ function MessageComposer({ t, onSubmit, target, onCancel }) {
   };
   return <form className={`guestbook-composer${target?' guestbook-composer-reply':''}`} onSubmit={submit}>
     {target && <div className="guestbook-reply-context"><span>{t('replyTo',{name:nameOf(target).replace(/^@/,'')})}</span><button type="button" className="guestbook-text-button" disabled={busy} onClick={onCancel}>{t('cancel')}</button></div>}
-    <textarea ref={input} value={draft} rows={target?2:3} maxLength={LIMIT*2} placeholder={target?t('replyTo',{name:nameOf(target).replace(/^@/,'')}):t('placeholder')} aria-label={target?t('replyTo',{name:nameOf(target).replace(/^@/,'')}):t('placeholder')} aria-describedby={`${hintId}${error?' '+errorId:''}`} aria-invalid={!!error} disabled={busy}
+    <textarea ref={input} value={draft} rows={target?2:3} maxLength={LIMIT*2} placeholder={target?t('replyTo',{name:nameOf(target).replace(/^@/,'')}):t('placeholder')} aria-label={target?t('replyTo',{name:nameOf(target).replace(/^@/,'')}):t('placeholder')} aria-describedby={error?errorId:undefined} aria-invalid={!!error} disabled={busy}
       onChange={event=>{setDraft([...event.target.value].slice(0,LIMIT).join(''));setError('');setNotice('');}} onKeyDown={event=>{if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)&&!event.nativeEvent.isComposing){event.preventDefault();void submit();}}}/>
-    <div className="guestbook-composer-footer"><span id={hintId} className="guestbook-input-hint">{target?'':t('identityHint')}</span><span className="guestbook-character-count">{t('characters',{count:length,max:LIMIT})}</span><button className="guestbook-submit" type="submit" disabled={busy||!draft.trim()}>{busy?t('posting'):t(target?'reply':'post')}<svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10m-4-4 4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></button></div>
+    <div className="guestbook-composer-footer"><span className="guestbook-character-count">{t('characters',{count:length,max:LIMIT})}</span><button className="guestbook-submit" type="submit" disabled={busy||!draft.trim()}>{busy?t('posting'):t(target?'reply':'post')}<svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10m-4-4 4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></button></div>
     {error && <p className="guestbook-error" role="alert" id={errorId}>{error}</p>}
     <span className="guestbook-sr-only" role="status">{notice}</span>
   </form>;
