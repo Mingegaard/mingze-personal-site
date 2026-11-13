@@ -71,7 +71,7 @@ export function ProfilePage({ t, getLocale }) {
   const updated = data.fetchedAt ? new Intl.DateTimeFormat(locale,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Shanghai'}).format(new Date(data.fetchedAt)) : null;
   const stats = [[formatTokens(data.total,locale),t('totalTokens')],[formatTokens(data.peak,locale),t('peak')],[duration,t('duration')],[data.longest == null ? '—' : t('days',{count:data.longest}),t('longest')],[data.current == null ? '—' : t('days',{count:data.current}),t('current')]];
   return <section className="personal-profile" aria-label={t('profile')}><div className="profile-wrap">
-    <header className="profile-heading"><h1>{t('activity')}</h1><div className="profile-heading-meta"><p>{t('activityIntro')}</p>{updated && <span className="profile-updated">{t('updated',{time:updated})}</span>}</div></header>
+    <header className="profile-heading"><h1>{t('activity')}</h1>{updated && <p className="profile-updated">{t('updated',{time:updated})}</p>}</header>
     <div className="profile-stats" aria-label={t('stats')}>{stats.map(([value,label])=><div key={label}><strong>{value}</strong><span>{label}</span></div>)}</div>
     {data.available ? <Activity key={locale} data={data} t={t} locale={locale}/> : <section className="profile-activity"><h2>{t('activity')}</h2><p>{t('unavailable')}</p></section>}
   </div></section>;

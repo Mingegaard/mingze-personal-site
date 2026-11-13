@@ -2,7 +2,7 @@
 body[data-ds-dark-theme] .personal-profile{--heat-0:#25292e;--heat-1:#183c5d;--heat-2:#23669b;--heat-3:#3799ec;--heat-4:#8bcaff}
 /* Match the guestbook's text-first page heading. */
 .profile-wrap{width:100%;max-width:800px;margin:0 auto}
-.profile-heading{margin:0 0 28px}.profile-heading h1{margin:0;font-size:26px;font-weight:500;letter-spacing:-.035em;line-height:1.35;text-shadow:0 1px 12px var(--ocean-paper)}.profile-heading-meta{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:4px 16px;margin-top:9px}.profile-heading p{margin:0;color:var(--dsw-alias-label-secondary);font-size:14px;line-height:1.6;text-shadow:0 1px 8px var(--ocean-paper)}
+.profile-heading{margin:0 0 28px}.profile-heading h1{margin:0;font-size:26px;font-weight:500;letter-spacing:-.035em;line-height:1.35;text-shadow:0 1px 12px var(--ocean-paper)}.profile-heading .profile-updated{margin:9px 0 0;color:var(--dsw-alias-label-secondary);font-size:14px;line-height:1.6;text-shadow:0 1px 8px var(--ocean-paper)}
 .profile-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid var(--ocean-line);border-radius:20px;padding:16px 0;margin-bottom:32px}.profile-stats>div{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;padding:0 12px;min-width:0}.profile-stats>div+div{border-left:1px solid var(--ocean-line)}.profile-stats strong{font-size:16px;font-weight:400;line-height:1.5}.profile-stats span{font-size:12px;color:var(--dsw-alias-label-secondary);line-height:1.4}
 .profile-section-heading h2{font-size:16px;font-weight:500;line-height:1.5;margin:0 0 20px}
 .profile-activity{position:relative;margin-top:32px;padding:28px;border:1px solid var(--ocean-line);border-radius:22px}.profile-section-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px}.profile-section-heading h2{margin:0;display:flex;align-items:center;gap:12px}.profile-view-switch{display:flex;gap:14px}.profile-view-switch button{border:0;background:none;padding:6px 0;color:var(--dsw-alias-label-secondary);font:inherit;font-size:14px;white-space:nowrap;cursor:pointer}.profile-view-switch button[aria-pressed=true]{color:var(--dsw-alias-label-primary)}.profile-view-switch button:hover{color:var(--dsw-alias-label-primary)}
@@ -23,5 +23,3 @@ body[data-ds-dark-theme] .profile-tooltip{background:#2b2b2b;border-color:#3c3c3
 
 /* Individual frosted surfaces keep the ocean visible between profile sections. */
 .profile-stats,.profile-activity{background:var(--ocean-glass);-webkit-backdrop-filter:blur(18px) saturate(.7);backdrop-filter:blur(18px) saturate(.7);box-shadow:var(--ocean-shadow),inset 0 1px 0 rgb(255 255 255 / 16%)}
-
-.profile-updated{font-size:12px;color:var(--dsw-alias-label-secondary)}

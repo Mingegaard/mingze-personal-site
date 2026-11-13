@@ -13,11 +13,7 @@ const rows = {
 export const profileLocales = Object.fromEntries(Object.entries(rows).map(([locale, values]) => [locale, Object.fromEntries(keys.map((key, index) => [key, values[index]]))]));
 
 profileLocales.en.activity = 'Token Activity';
-const activityIntros = {zh:'Codex 使用记录。',en:'Codex usage, day by day.',ja:'Codex の日々の利用記録。',es:'Tu uso diario de Codex.',fr:'Votre utilisation de Codex au fil des jours.',de:'Deine tägliche Codex-Nutzung.',ru:'Использование Codex по дням.',pt:'O seu uso diário do Codex.'};
-for (const [locale,intro] of Object.entries(activityIntros)) {
- profileLocales[locale].profile = profileLocales[locale].activity;
- profileLocales[locale].activityIntro = intro;
-}
+for (const translations of Object.values(profileLocales)) translations.profile = translations.activity;
 
 const live = {
  en:['Updated {time}','Usage data is currently unavailable.','{hours} hr {minutes} min'],
