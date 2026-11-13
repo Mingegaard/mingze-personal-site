@@ -4,7 +4,7 @@
 
 ## 部署配置
 
-- `ALLOWED_ORIGINS`：逗号分隔的完整 Origin，例如 `https://mingegaard.github.io,http://127.0.0.1:3080`；不要包含 URL 路径。
+- `ALLOWED_ORIGINS`：逗号分隔的完整 Origin，例如 `https://gaomingze.com,https://www.gaomingze.com,http://127.0.0.1:3080`；不要包含 URL 路径。
 - `REQUEST_HASH_SALT`：至少 32 字符的随机服务端秘密，用于请求来源摘要。
 - `PERSONAL_MAAS_API_KEY`：既有 MaaS 模型密钥，只设置为函数秘密。
 - `AI_DAILY_REQUEST_LIMIT`：全站每天最多请求数，默认 50，支持 1–500。

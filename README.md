@@ -2,7 +2,7 @@
 
 以蓝色 ASCII 海洋为背景的个人网站：和铭泽的 AI 代表聊天、浏览个人简介与 Token 活动、在留言板留下消息并回复其他访客。无需注册账号。
 
-发布目标：[mingegaard.github.io/mingze-personal-site](https://mingegaard.github.io/mingze-personal-site/)。
+网站主域名：[gaomingze.com](https://gaomingze.com/)。
 
 ## 目录与数据
 
@@ -68,7 +68,7 @@ npm run preview
 
 | 名称 | 用途 |
 | --- | --- |
-| `ALLOWED_ORIGINS` | 允许访问的网页 Origin；线上为 `https://mingegaard.github.io`，不要加仓库路径 |
+| `ALLOWED_ORIGINS` | 允许访问的网页 Origin；线上主域名为 `https://gaomingze.com`，`www` 为 `https://www.gaomingze.com`；只填写 Origin，不要加路径 |
 | `REQUEST_HASH_SALT` | 至少 32 字符的随机秘密，用于请求来源摘要 |
 | `PERSONAL_MAAS_API_KEY` | 模型网关密钥，只存服务端 |
 | `AI_DAILY_REQUEST_LIMIT` | 全站每日模型请求上限 |
