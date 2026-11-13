@@ -219,7 +219,7 @@ test('migrates all unversioned model choices to official Flash with reasoning of
   const values=storageFor(t);
   let payload;
   t.mock.method(globalThis,'fetch',async(_,options)=>{payload=JSON.parse(options.body);return Response.json({content:'ok'});});
-  assert.deepEqual(CHAT_MODELS,[{id:'deepseek-flash',name:'mingzev1.0'}]);
+  assert.deepEqual(CHAT_MODELS,[{id:'deepseek-flash',name:'Mingze-V1.0'}]);
   assert.deepEqual(DEFAULT_SELECTION,{model:'deepseek-flash',reasoningEffort:'off'});
   for (const previousModel of ['deepseek-flash','deepseek-v4-flash','deepseek-v4-pro']) {
     for (const reasoningEffort of ['off','low','high','max']) {

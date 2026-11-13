@@ -1,6 +1,6 @@
 // The personal site exposes one named model backed by the official DeepSeek API.
 export const CHAT_MODELS = [
-  { id: 'deepseek-flash', name: 'mingzev1.0' },
+  { id: 'deepseek-flash', name: 'Mingze-V1.0' },
 ];
 export const CHAT_EFFORTS = ['off', 'low', 'high', 'max'];
 export const DEFAULT_SELECTION = { model: 'deepseek-flash', reasoningEffort: 'off' };
