@@ -2,7 +2,7 @@
 .personal-chat-scroll{height:100%;overflow:auto;box-sizing:border-box;padding:64px 28px 30px;display:flex;flex-direction:column;align-items:center;gap:24px}
 .personal-chat[data-phase=hero] .personal-chat-scroll{justify-content:center;padding-bottom:100px}
 .personal-chat-title{font-family:inherit;font-weight:300;font-size:clamp(30px,4.6vw,58px);line-height:1.2;letter-spacing:-.045em;margin:0 0 38px;text-align:center;text-shadow:0 2px 24px var(--ocean-paper)}
-.personal-chat-composer{width:100%;max-width:800px;box-sizing:border-box;border:1px solid var(--ocean-line);border-radius:22px;background:var(--ocean-glass);box-shadow:var(--ocean-shadow);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);padding:16px;flex:none}
+.personal-chat-composer{width:100%;max-width:800px;box-sizing:border-box;border:1px solid var(--ocean-line);border-radius:22px;background:var(--ocean-glass);box-shadow:var(--ocean-shadow);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);padding:16px;flex:none}
 .personal-chat-composer:focus-within{border-color:#397fc480}
 .personal-chat-composer textarea{display:block;resize:none;min-height:64px;max-height:240px;width:100%;box-sizing:border-box;padding:0;border:0;outline:none;background:transparent;color:inherit;font:inherit;font-size:14px;line-height:1.7}
 .personal-chat-composer textarea::placeholder{color:var(--dsw-alias-label-caption)}
@@ -15,8 +15,8 @@
 .personal-chat-messages{width:100%;max-width:800px;margin-top:auto}
 .personal-message{box-sizing:border-box;margin:0 0 28px;line-height:1.8;font-size:14px;overflow-wrap:anywhere}
 .personal-message>div{white-space:pre-wrap}
-.personal-message-user{width:fit-content;max-width:min(85%,640px);margin-left:auto;padding:11px 18px;border:1px solid rgb(57 127 196 / 15%);border-radius:20px;background:rgb(170 207 243 / 42%);color:#173c62;box-shadow:inset 0 1px 0 rgb(255 255 255 / 35%),0 3px 14px rgb(39 93 147 / 5%);backdrop-filter:blur(18px) saturate(125%);-webkit-backdrop-filter:blur(18px) saturate(125%)}
-.personal-message-assistant{width:100%;padding:2px 0;border:0;border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;text-shadow:0 1px 3px var(--ocean-paper),0 0 8px var(--ocean-paper)}
+.personal-message-user{width:fit-content;max-width:min(85%,640px);margin-left:auto;padding:11px 18px;border:1px solid rgb(57 127 196 / 15%);border-radius:20px;background:rgb(170 207 243 / 42%);color:#173c62;box-shadow:inset 0 1px 0 rgb(255 255 255 / 35%),0 3px 14px rgb(39 93 147 / 5%);-webkit-backdrop-filter:blur(18px) saturate(125%);backdrop-filter:blur(18px) saturate(125%)}
+.personal-message-assistant{width:100%;padding:2px 0;border:0;border-radius:0;background:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;text-shadow:0 1px 3px var(--ocean-paper),0 0 8px var(--ocean-paper)}
 body[data-ds-dark-theme] .personal-message-user{background:rgb(34 83 151 / 64%);color:#f0f6ff;border-color:rgb(116 170 237 / 16%);box-shadow:inset 0 1px 0 rgb(164 205 255 / 8%),0 3px 14px rgb(0 0 0 / 8%)}
 .personal-chat-error{color:#be4343;font-size:13px;margin:12px 0 0}.personal-chat-status{font-size:13px;color:var(--dsw-alias-label-secondary)}
 .personal-chat-history{padding:12px 3px;min-height:0;overflow:auto}.personal-chat-history h2{font-size:12px;font-weight:400;color:var(--dsw-alias-label-secondary);padding:0 9px;margin:0 0 12px}
