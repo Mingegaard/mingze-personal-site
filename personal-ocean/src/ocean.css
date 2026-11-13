@@ -1,0 +1,203 @@
+/* Light paper, quiet charcoal, and translucent surfaces over the living grid. */
+html[data-personal-ocean] body {
+  --ocean-paper: #fff;
+  --ocean-glass: rgb(245 245 243 / 48%);
+  --ocean-sidebar: rgb(248 248 246 / 48%);
+  --ocean-line: rgb(38 42 44 / 12%);
+  --ocean-shadow: 0 14px 56px rgb(36 42 44 / 7%), 0 1px 3px rgb(36 42 44 / 4%);
+  --ocean-halo: rgb(255 255 255 / 78%);
+  background: var(--ocean-paper);
+}
+html[data-personal-ocean] body[data-ds-dark-theme] {
+  --ocean-paper: #111315;
+  --ocean-glass: rgb(25 29 32 / 54%);
+  --ocean-sidebar: rgb(25 29 32 / 55%);
+  --ocean-line: rgb(235 241 245 / 14%);
+  --ocean-shadow: 0 14px 56px rgb(0 0 0 / 16%), 0 1px 3px rgb(0 0 0 / 12%);
+  --ocean-halo: rgb(17 19 21 / 82%);
+}
+.personal-ocean-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  display: block;
+  pointer-events: none;
+  font-family: 'SFMono-Regular', Menlo, Consolas, monospace;
+  opacity: var(--ocean-opacity);
+  /* Warm monochrome inverted onto white produces a blue ocean, with a white paper background. */
+  filter: grayscale(1) sepia(1) saturate(3) hue-rotate(350deg) invert(1);
+}
+body[data-ds-dark-theme] .personal-ocean-canvas {
+  filter: grayscale(1) sepia(1) saturate(3) hue-rotate(175deg);
+}
+html[data-personal-ocean] #root { position: relative; z-index: 1; background: transparent; }
+
+/* Hide the official home breach decoration; zero dimensions also prevent its renderer from playing. */
+html[data-personal-ocean] [data-home-whale] { display: none; }
+
+/* Target the published slot structure, not build-generated class hashes. */
+html[data-personal-ocean] [data-slot='root'] > div,
+html[data-personal-ocean] [data-slot='root'] > div > div:has(> div > [data-slot='main']),
+html[data-personal-ocean] [data-slot='main.conversation'] > [data-phase],
+html[data-personal-ocean] [data-slot='sidebar'] > div {
+  background: transparent;
+}
+html[data-personal-ocean] [data-slot='root'] > div > div:has(> [data-slot='sidebar']) {
+  background: var(--ocean-sidebar);
+  border: 1px solid var(--ocean-line);
+  border-radius: 22px;
+  box-shadow: var(--ocean-shadow), inset 0 1px 0 rgb(255 255 255 / 16%);
+  backdrop-filter: blur(18px) saturate(0.7);
+  -webkit-backdrop-filter: blur(18px) saturate(0.7);
+}
+html[data-personal-ocean] [data-slot='root'] > div:not([data-sidebar-collapsed]) > div:has(> [data-slot='sidebar']) {
+  margin: 12px;
+}
+/* Keep the compact web rail full-width, with the same inset as the open panel. */
+html[data-personal-ocean]:not([data-platform='darwin']):not([data-windows-titlebar]) [data-slot='root'] > div[data-sidebar-collapsed]:not([data-sidebar-drawer]) > div:has(> [data-slot='sidebar']) {
+  margin: 12px 0 12px 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+html[data-personal-ocean]:not([data-platform='darwin']):not([data-windows-titlebar]) [data-slot='root'] > div[data-sidebar-collapsed]:not([data-sidebar-drawer]) > div:has(> div > [data-slot='main']) {
+  margin-left: 24px;
+}
+/* The host supplies a frozen inline width; fit it inside the inset panel. */
+html[data-personal-ocean] [data-slot='root'] > div:not([data-sidebar-collapsed]) [data-slot='sidebar'] > div {
+  max-width: 100%;
+}
+html[data-personal-ocean] [data-slot='sidebar'] > div {
+  --dsw-specific-sidebar-fill: transparent;
+  --dsw-alias-button-elevated-fill: rgb(127 127 127 / 5%);
+  --dsw-alias-button-floating-hover: rgb(127 127 127 / 10%);
+}
+/* The supplied wordmark replaces the expanded brand identity as one image. */
+html[data-personal-ocean] [data-slot='sidebar'] [class$='_brandIdentity'] {
+  gap: 0;
+  width: 112px;
+  max-width: 100%;
+  height: auto;
+  margin-left: 4px;
+}
+html[data-personal-ocean] [data-slot='sidebar'] [class$='_brandIdentity'] > [class$='_brandMark'] { display: none; }
+html[data-personal-ocean] [data-slot='sidebar'] [class$='_brandName'] { width: 100%; height: auto; }
+.personal-brand-logo { display: block; width: 100%; height: auto; object-fit: contain; }
+.personal-brand-mark { display: block; width: 24px; height: 24px; object-fit: contain; }
+
+/* New Session shares the navigation rows' geometry, retaining the host action and shortcut. */
+html[data-personal-ocean] [data-slot='sidebar'] [class$='_newSession'] {
+  background: transparent;
+  box-shadow: none;
+  font: inherit;
+  line-height: 22px;
+  text-align: left;
+}
+html[data-personal-ocean] [data-slot='sidebar'] [class$='_newSession']:has([class$='_newSessionContent'] [class*='_newSessionLabel']) {
+  height: 32px;
+  margin: 0;
+  padding: 5px calc(var(--dsh-sidebar-row-padding) - var(--dsh-sidebar-paint-inset));
+  border: 0;
+  border-inline: var(--dsh-sidebar-paint-inset) solid transparent;
+  background-clip: padding-box;
+}
+html[data-personal-ocean] [data-slot='sidebar'] [class$='_newSessionContent']:has([class*='_newSessionLabel']) {
+  width: 100%;
+  justify-content: flex-start;
+  gap: var(--dsh-sidebar-label-gap);
+}
+html[data-personal-ocean] [data-slot='sidebar'] [class$='_newSessionContent']:has([class*='_newSessionLabel']) > svg {
+  width: 18px;
+  height: 18px;
+}
+html[data-personal-ocean] [data-slot='sidebar'] > div:has([class$='_newSessionContent'] [class*='_newSessionLabel']) [class$='_scrollRegion'] {
+  margin-top: -6px;
+}
+html[data-personal-ocean] [data-slot='sidebar'] [class$='_newSession']:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -2px;
+}
+@media (hover: hover) {
+  html[data-personal-ocean] [data-slot='sidebar'] [class$='_newSession']:hover {
+    background-color: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+html[data-personal-ocean] [data-slot='conversation.composer.bar'] [data-composer-card]:not([contenteditable]) {
+  background: var(--ocean-glass);
+  border: 1px solid var(--ocean-line);
+  border-radius: 22px;
+  box-shadow: var(--ocean-shadow), inset 0 1px 0 rgb(255 255 255 / 16%);
+  backdrop-filter: blur(16px) saturate(0.65);
+  -webkit-backdrop-filter: blur(16px) saturate(0.65);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+html[data-personal-ocean] [data-slot='conversation.composer.bar'] [data-composer-card]:not([contenteditable]):focus-within {
+  border-color: color-mix(in srgb, var(--dsw-alias-label-primary) 24%, transparent);
+  box-shadow: var(--ocean-shadow), 0 0 0 2px rgb(127 127 127 / 5%);
+}
+/* The empty workspace picker uses the glass card's own outline, not a second inset stroke. */
+html[data-personal-ocean] [data-slot='conversation.composer.bar'] [data-composer-card][class*='_cardWorkspaceTrigger'] {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--dsw-alias-label-primary) 24%, transparent);
+}
+html[data-personal-ocean] [data-slot='conversation.composer.bar'] [data-composer-card][class*='_cardWorkspaceTrigger']::after {
+  display: none;
+}
+@media (hover: hover) {
+  html[data-personal-ocean] [data-slot='conversation.composer.bar'] [data-composer-card][class*='_cardWorkspaceTrigger']:hover {
+    border-color: var(--dsw-alias-state-business-primary);
+  }
+}
+
+/* Keep the center calm while the sharks swim behind the composition. */
+html[data-personal-ocean] [data-phase='hero'] [data-conversation-scroll]::before {
+  content: '';
+  position: absolute;
+  inset: 17% 5%;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(ellipse, var(--ocean-halo), transparent 70%);
+}
+html[data-personal-ocean] [data-phase='hero'] [class$='_headline'] {
+  font-size: clamp(30px, 4.6vw, 58px);
+  line-height: 1.2;
+  font-weight: 300;
+  letter-spacing: -0.045em;
+  margin-bottom: 20px;
+  text-shadow: 0 2px 24px var(--ocean-paper);
+}
+html[data-personal-ocean] [data-phase='hero'] [class$='_previewBadge'],
+html[data-personal-ocean] [data-phase='hero'] [class$='_fishHitbox'] { display: none; }
+html[data-personal-ocean] [data-phase='hero'] [class$='_titleGroup'] { max-width: 100%; }
+html[data-personal-ocean] [data-phase='hero'] [data-composer-card]:not([contenteditable]) { min-height: 136px; }
+html[data-personal-ocean] [data-slot='main'] > :not([data-slot='main.conversation']) {
+  --dsw-alias-bg-base: var(--ocean-paper);
+}
+/* Active transcripts get a steadier reading surface than the empty home. */
+html[data-personal-ocean] [data-slot='main.conversation'] > [data-phase='active'] {
+  background: color-mix(in srgb, var(--ocean-paper) 84%, transparent);
+}
+@media (max-width: 700px) {
+  html[data-personal-ocean] [data-phase='hero'] [class$='_headline'] {
+    font-size: 32px;
+    margin-bottom: 14px;
+  }
+  html[data-personal-ocean] [data-slot='root'] > div > div:has(> [data-slot='sidebar']) {
+    background: color-mix(in srgb, var(--ocean-paper) 70%, transparent);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  html[data-personal-ocean] [data-slot='root'] > div > div:has(> [data-slot='sidebar']),
+  html[data-personal-ocean] [data-slot='conversation.composer.bar'] [data-composer-card]:not([contenteditable]) {
+    background: var(--ocean-paper);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* Personal home headline, localized through the application locale service. */
+html[data-personal-ocean] [data-phase='hero'] [class$='_titleGroup'] > span:first-child { display:none; }
+html[data-personal-ocean] [data-phase='hero'] [class$='_titleGroup']::after { content:var(--personal-home-title); }
+
+.personal-ripple-canvas { position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none; }

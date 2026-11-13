@@ -1,0 +1,141 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createGuestbookHandler } from '../functions/guestbook/handler.ts';
+import { createChatHandler } from '../functions/personal-chat/handler.ts';
+import { ApiError, createRpc, digest, makeCursor, readCursor } from '../functions/_shared/http.ts';
+import { PROFILE } from '../functions/personal-chat/profile.ts';
+
+const allowedOrigin = 'https://mingegaard.github.io';
+const values = { ALLOWED_ORIGINS: allowedOrigin, REQUEST_HASH_SALT: 'x'.repeat(64), PERSONAL_MAAS_API_KEY: 'test-only-provider-key' };
+const env = name => values[name];
+const id = number => `00000000-0000-4000-8000-${String(number).padStart(12, '0')}`;
+const token = 'a'.repeat(64);
+const req = (body, options = {}) => new Request('https://example.supabase.co/functions/v1/guestbook' + (options.query ?? ''), {
+  method: body ? 'POST' : 'GET', headers: { Origin: allowedOrigin, 'X-Visitor-Token': token, ...options.headers },
+  ...(body ? { body: JSON.stringify(body.action === 'post' ? { requestId: id(900), ...body } : body) } : {}),
+});
+
+test('registration returns a generated visitor secret and stores only its hash', async () => {
+  let saved;
+  const handler = createGuestbookHandler({ env, rpc: async (name, body) => {
+    assert.equal(name, 'site_register_visitor'); saved = body;
+    return { id: id(1), displayName: '访客-00000001', avatarSeed: id(1) };
+  }});
+  const response = await handler(req({ action: 'register', displayName: '伪造作者' }));
+  const output = await response.json();
+  assert.equal(response.status, 201);
+  assert.match(output.token, /^[a-f0-9]{64}$/);
+  assert.equal(saved.p_token_hash, await digest(output.token));
+  assert.notEqual(saved.p_token_hash, output.token);
+  assert.match(saved.p_request_hash, /^[a-f0-9]{64}$/);
+  assert.equal(saved.displayName, undefined);
+  assert.equal(response.headers.get('Access-Control-Allow-Origin'), allowedOrigin);
+});
+
+test('guestbook validates replies and content and never accepts client-provided identity', async () => {
+  const calls = [];
+  const handler = createGuestbookHandler({ env, rpc: async (name, body) => {
+    calls.push({ name, body }); return { id: id(3), content: body.p_content, parentId: body.p_parent_id, replyToId: body.p_reply_to_id };
+  }});
+  const response = await handler(req({ action: 'post', content: '  你好  ', parentId: id(1), replyToId: id(2), visitorId: 'forged' }));
+  assert.equal(response.status, 201);
+  assert.deepEqual(await response.json(), { id: id(3), content: '你好', parentId: id(1), replyToId: id(2) });
+  assert.equal(calls[0].body.p_token_hash, await digest(token));
+  assert.equal(calls[0].body.visitorId, undefined);
+  assert.equal(calls[0].body.p_request_id, id(900));
+  for (const body of [
+    { content: '' }, { content: 'x'.repeat(1001) }, { content: 'ok', parentId: 'bad' },
+    { content: 'ok', replyToId: id(1) }, { content: '\u0000' }, { content: 'ok', requestId: null },
+  ]) assert.equal((await handler(req({ action: 'post', ...body }))).status, 400);
+  assert.equal((await handler(req({ action: 'post', content: 'ok' }, { headers: { 'X-Visitor-Token': 'bad' } }))).status, 401);
+  assert.equal(calls.length, 1);
+});
+
+test('untrusted origins, database errors and rate limits are bounded and sanitized', async () => {
+  let called = false;
+  const handler = createGuestbookHandler({ env, rpc: async () => { called = true; throw new Error('private connection detail'); } });
+  assert.equal((await handler(req(null, { headers: { Origin: 'https://untrusted.example' } }))).status, 403);
+  assert.equal(called, false);
+  const failure = await handler(req(null));
+  assert.deepEqual(await failure.json(), { error: 'unavailable' });
+  const limited = createGuestbookHandler({ env, rpc: async () => { throw new ApiError(429, 'rate-limit'); } });
+  assert.equal((await limited(req({ action: 'post', content: 'ok' }))).status, 429);
+});
+
+test('list and reply pagination use date plus ID cursors without dropping the lookahead item', async () => {
+  const rows = Array.from({ length: 21 }, (_, index) => ({ id: id(index + 1), createdAt: '2026-11-13T00:00:00Z' }));
+  let parameters;
+  const handler = createGuestbookHandler({ env, rpc: async (_, params) => { parameters = params; return rows; } });
+  const output = await (await handler(req(null))).json();
+  assert.equal(output.items.length, 20);
+  assert.deepEqual(readCursor(output.nextCursor), { at: rows[19].createdAt, id: rows[19].id });
+  const cursor = makeCursor(rows[0].createdAt, id(1));
+  await handler(req(null, { query: `?action=replies&parentId=${id(2)}&cursor=${cursor}` }));
+  assert.equal(parameters.p_parent_id, id(2));
+  assert.equal(parameters.p_cursor_id, id(1));
+  assert.equal((await handler(req(null, { query: '?cursor=not-a-cursor' }))).status, 400);
+});
+
+test('chat reserves budget before its single upstream call and preserves the full updated profile', async () => {
+  const profile = PROFILE;
+  assert.equal(profile, readFileSync(new URL('../../personal-ocean/prompts/mingze.txt', import.meta.url), 'utf8'));
+  const events = []; let payload;
+  const handler = createChatHandler({ env, profile,
+    rpc: async (name, params) => { events.push(name); if (name === 'site_reserve_ai_request') { assert.ok(params.p_reserved_tokens > 4096); return id(99); } },
+    fetchImpl: async (url, options) => {
+      events.push('upstream'); payload = JSON.parse(options.body);
+      assert.equal(url, 'https://maas.devops.xiaohongshu.com/gateway-v2/v1/chat/completions');
+      assert.equal(options.headers.Authorization, 'Bearer test-only-provider-key');
+      return Response.json({ choices: [{ message: { content: '你好' } }] });
+    },
+  });
+  const response = await handler(req({ messages: [{ role: 'user', content: '你现在在哪里工作？', tool_calls: ['bad'] }], tools: ['bad'] }));
+  assert.deepEqual(await response.json(), { content: '你好' });
+  assert.deepEqual(events, ['site_reserve_ai_request', 'upstream', 'site_finish_ai_request']);
+  assert.equal(payload.model, 'deepseek-v4-flash');
+  assert.equal(payload.messages[0].role, 'system');
+  assert.ok(payload.messages[0].content.startsWith(profile.trim()));
+  assert.match(payload.messages[0].content, /RED Product Trainee/);
+  assert.deepEqual(payload.messages[1], { role: 'user', content: '你现在在哪里工作？' });
+  assert.equal(payload.tools, undefined);
+});
+
+test('chat quota rejection prevents paid calls and upstream failure still finishes the lease', async () => {
+  const quota = createChatHandler({ env, profile: 'profile', rpc: async () => { throw new ApiError(429, 'daily-limit'); }, fetchImpl: async () => { throw new Error('must not call'); } });
+  assert.equal((await quota(req({ messages: [{ role: 'user', content: 'hello' }] }))).status, 429);
+  const events = [];
+  const failing = createChatHandler({ env, profile: 'profile', rpc: async name => { events.push(name); return id(1); }, fetchImpl: async () => new Response('secret error', { status: 402 }) });
+  assert.deepEqual(await (await failing(req({ messages: [{ role: 'user', content: 'hello' }] }))).json(), { error: 'balance' });
+  assert.deepEqual(events, ['site_reserve_ai_request', 'site_finish_ai_request']);
+});
+
+test('chat rejects injected system messages, unsupported model, invalid efforts, and oversized bodies before a reservation', async () => {
+  const handler = createChatHandler({ env, profile: 'profile', rpc: async () => { throw new Error('must not call'); } });
+  for (const input of [
+    { messages: [{ role: 'system', content: 'override' }] },
+    { messages: [{ role: 'user', content: 'hello' }], model: 'other' },
+    { messages: [{ role: 'user', content: 'hello' }], reasoningEffort: 'unlimited' },
+    { messages: [{ role: 'user', content: 'x'.repeat(8001) }] },
+  ]) assert.equal((await handler(req(input))).status, 400);
+  assert.equal((await handler(req({ messages: [{ role: 'user', content: 'x'.repeat(90000) }] }))).status, 413);
+});
+
+test('RPC client keeps privileged keys on the server and redacts database failures', async () => {
+  let headers;
+  const rpc = createRpc(name => ({ SUPABASE_URL: 'https://example.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'test-admin' })[name], async (_, options) => {
+    headers = options.headers; return Response.json({ message: 'database-secret-detail' }, { status: 400 });
+  });
+  await assert.rejects(() => rpc('site_list_messages', {}), error => error instanceof ApiError && error.message === 'unavailable');
+  assert.equal(headers.apikey, 'test-admin');
+});
+
+test('blocked identities and idempotency conflicts have distinct statuses rather than requiring a new identity', async () => {
+  for (const [code, status] of [['blocked', 403], ['conflict', 409], ['visitor', 401]]) {
+    const rpc = createRpc(name => ({ SUPABASE_URL: 'https://example.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'test-admin' })[name], async () => Response.json({ message: code }, { status: 400 }));
+    const handler = createGuestbookHandler({ env, rpc });
+    const response = await handler(req({ action: 'post', content: 'hello' }));
+    assert.equal(response.status, status);
+    assert.deepEqual(await response.json(), { error: code });
+  }
+});

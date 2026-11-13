@@ -1,0 +1,32 @@
+# Dependencies and generated builds
+node_modules/
+dist/
+coverage/
+.vite/
+
+# Local configuration, runtime state, and credentials
+.local/
+.env
+.env.*
+!.env.example
+credentials*
+**/credentials/**
+*.key
+*.pem
+*.p12
+*.pfx
+*.log
+*.log.*
+*.sqlite
+*.sqlite3
+*.db
+
+# Supabase local metadata
+supabase/.temp/
+supabase/.branches/
+
+# Editor and operating-system metadata
+.DS_Store
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,9 @@
+project_id = "mingze-personal-web"
+
+# These endpoints use a scoped opaque visitor token, not a Supabase Auth account.
+# The handler checks X-Visitor-Token before writes or paid model requests.
+[functions.guestbook]
+verify_jwt = false
+
+[functions.personal-chat]
+verify_jwt = false

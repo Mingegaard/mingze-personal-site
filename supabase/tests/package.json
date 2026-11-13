@@ -1,0 +1,7 @@
+{
+  "name": "mingze-site-backend-tests",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test backend.test.mjs database.test.mjs" },
+  "devDependencies": { "@electric-sql/pglite": "0.5.16" }
+}

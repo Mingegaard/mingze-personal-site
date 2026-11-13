@@ -1,0 +1,9 @@
+{
+  "name": "mingze-personal-components",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test chat-store.test.mjs guestbook-api.test.mjs"
+  }
+}
