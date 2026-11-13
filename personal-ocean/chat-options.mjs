@@ -2,7 +2,7 @@
 export const CHAT_MODELS = [
   { id: 'deepseek-flash', name: 'Mingze-V1.0' },
 ];
-export const CHAT_EFFORTS = ['off', 'low', 'high', 'max'];
+export const CHAT_EFFORTS = ['off', 'low', 'medium', 'high', 'max'];
 export const DEFAULT_SELECTION = { model: 'deepseek-flash', reasoningEffort: 'off' };
 export function validSelection(value) {
   return CHAT_MODELS.some(model => model.id === value?.model)

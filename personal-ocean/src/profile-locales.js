@@ -61,6 +61,15 @@ const modelCopy = {
 for (const [locale, values] of Object.entries(modelCopy)) Object.assign(profileLocales[locale],
  Object.fromEntries(['chatSelectModel','chatModelSettings','chatModel','chatEffort','chatBack','chatSearchModels','chatEffort_off','chatEffort_low','chatEffort_high','chatEffort_max'].map((key,i)=>[key,values[i]])));
 
+const mediumEfforts = {zh:'中',en:'Medium',ja:'中',es:'Medio',fr:'Moyen',de:'Mittel',ru:'Средняя',pt:'Médio'};
+for (const [locale,label] of Object.entries(mediumEfforts)) profileLocales[locale].chatEffort_medium = label;
+
+// Keep the five slider captions readable while retaining full accessible names.
+const compactEfforts = {es:{off:'Desact.'},fr:{off:'Désact.'},pt:{off:'Desat.'},ru:{max:'Макс.'}};
+for (const [locale,copy] of Object.entries(profileLocales)) for (const level of ['off','low','medium','high','max']) {
+ copy['chatEffortLabel_'+level] = compactEfforts[locale]?.[level] ?? copy['chatEffort_'+level];
+}
+
 const balanceCopy = {
  zh:'模型服务余额或额度不足，请检查账户后重试。',
  en:'Insufficient model service balance or quota. Check your account and try again.',

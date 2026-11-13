@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createChatStore } from './src/chat-store.js';
-import { CHAT_MODELS, DEFAULT_SELECTION } from './chat-options.mjs';
+import { CHAT_MODELS, CHAT_EFFORTS, DEFAULT_SELECTION } from './chat-options.mjs';
 
 test('model and effort survive reload, follow each conversation, and reach the request', async t => {
   const values = new Map();
@@ -220,9 +220,10 @@ test('migrates all unversioned model choices to official Flash with reasoning of
   let payload;
   t.mock.method(globalThis,'fetch',async(_,options)=>{payload=JSON.parse(options.body);return Response.json({content:'ok'});});
   assert.deepEqual(CHAT_MODELS,[{id:'deepseek-flash',name:'Mingze-V1.0'}]);
+  assert.deepEqual(CHAT_EFFORTS,['off','low','medium','high','max']);
   assert.deepEqual(DEFAULT_SELECTION,{model:'deepseek-flash',reasoningEffort:'off'});
   for (const previousModel of ['deepseek-flash','deepseek-v4-flash','deepseek-v4-pro']) {
-    for (const reasoningEffort of ['off','low','high','max']) {
+    for (const reasoningEffort of ['off','low','medium','high','max']) {
       const oldSelection={model:previousModel,reasoningEffort};
       const messages=[{role:'user',content:'saved history'}];
       values.clear();
@@ -255,7 +256,7 @@ test('manual effort choices on the new model survive repeated reloads without re
   const calls=[];
   const requestChat=async payload=>{calls.push(payload);return {content:'mock reply'};};
   let store=createChatStore({requestChat});
-  for(const reasoningEffort of ['low','high','max','off']) {
+  for(const reasoningEffort of ['low','medium','high','max','off']) {
     const selected={model:'deepseek-flash',reasoningEffort};
     store.newChat();store.setSelection(selected);
     store.draft('manual '+reasoningEffort);await store.send();
@@ -265,6 +266,7 @@ test('manual effort choices on the new model survive repeated reloads without re
     assert.equal(calls.at(-1).selectionVersion,undefined);
     const persisted=JSON.parse(values.get('personal-ocean.chats.v1.selection'));
     assert.equal(persisted.selectionVersion,2);
+    assert.equal(persisted.reasoningEffort,reasoningEffort);
     store.dispose();store=createChatStore({requestChat});
     assert.deepEqual(store.getSnapshot().selection,selected);
     store.select(id);assert.deepEqual(store.getSnapshot().selection,selected);

@@ -4,7 +4,7 @@ import type { Env, Rpc } from '../_shared/http.ts';
 const API_URL = 'https://api.deepseek.com/chat/completions';
 const MODEL = 'deepseek-flash';
 const LEGACY_MODEL = 'deepseek-v4-flash';
-const efforts = ['off', 'low', 'high', 'max'];
+const efforts = ['off', 'low', 'medium', 'high', 'max'];
 const usageFields = ['prompt_tokens', 'completion_tokens', 'total_tokens', 'prompt_cache_hit_tokens', 'prompt_cache_miss_tokens'];
 const boundedSetting = (env: Env, name: string, fallback: number, max: number) => {
   const value = Number(env(name) ?? fallback);
@@ -50,7 +50,8 @@ export function createChatHandler({ env, rpc, profile, fetchImpl = fetch }: { en
         signal: upstreamSignal,
         body: JSON.stringify({ model: MODEL, stream: false, max_tokens: maxTokens,
           thinking: { type: effort === 'off' ? 'disabled' : 'enabled' },
-          ...(effort === 'off' ? {} : { reasoning_effort: effort }), messages: upstreamMessages }),
+          // DeepSeek's official medium alias maps to high; storage retains the original choice.
+          ...(effort === 'off' ? {} : { reasoning_effort: effort === 'medium' ? 'high' : effort }), messages: upstreamMessages }),
       });
       if (!upstream.ok) throw new ApiError(502, upstream.status === 402 ? 'balance' : 'upstream');
       const result = await upstream.json(), content = result?.choices?.[0]?.message?.content;

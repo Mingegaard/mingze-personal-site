@@ -106,9 +106,14 @@ test('chat reserves budget before its single upstream call and preserves the ful
 
 test('chat migrates legacy cached selections to economical non-thinking mode and bounds explicit reasoning', async () => {
   for (const [model, requestedEffort, effectiveEffort, cap] of [
+    ['deepseek-v4-flash', 'off', 'off', 1024],
+    ['deepseek-v4-flash', 'low', 'off', 1024],
+    ['deepseek-v4-flash', 'medium', 'off', 1024],
     ['deepseek-v4-flash', 'max', 'off', 1024],
     ['deepseek-v4-flash', 'high', 'off', 1024],
+    ['deepseek-flash', 'off', 'off', 1024],
     ['deepseek-flash', 'low', 'low', 4096],
+    ['deepseek-flash', 'medium', 'high', 4096],
     ['deepseek-flash', 'high', 'high', 4096],
     ['deepseek-flash', 'max', 'max', 4096],
   ]) {

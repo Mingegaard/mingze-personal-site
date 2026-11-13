@@ -1,0 +1,8 @@
+Generated with the built-in image generation tool, using the user's five-stage evolution illustration as the pose reference.
+
+Use case: style-transfer.
+Asset type: a single horizontal five-frame sprite sheet for a reasoning-effort control on a blue ASCII ocean website.
+Edit target / pose reference: the attached evolution illustration. Transform its five distinct left-to-right characters into elegant, recognizable ASCII-character illustrations. Preserve their order and posture progression: 1 crouching knuckle-walking ape; 2 stooped early hominin holding a small stone; 3 walking early human with a simple hand axe; 4 upright hunter holding a bow; 5 modern upright office worker carrying a briefcase. All face right.
+Style: strict tiny monospaced characters such as @ # % X S 8 + : . on a regular square-cell grid, with occasional pale-blue cell tiles behind characters, like ASCII terminal art. All silhouettes must be visibly built from glyphs, NOT smooth silhouette fills or conventional pixel art. Restrained medium blue #397fc4, dark navy blue and pale blue; no orange/red. Keep clear negative space between limbs and readable face/prop silhouettes at small size.
+Composition is essential for CSS sprite slicing: output one 1536x512 wide image, exactly FIVE equal-width columns, each character entirely within its column, centered horizontally at x=10%,30%,50%,70%,90%, with a shared baseline near 90% height. Generous transparent margins, no overlapping columns. No captions, no titles, no slider, no UI, no frame outlines, no ground plane, no shadows, no gradients. Background genuinely transparent. The progression from short ape to tall modern human must remain clear.
+

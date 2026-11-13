@@ -1,7 +1,17 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { CHAT_MODELS, CHAT_EFFORTS } from '../chat-options.mjs';
+import evolutionSprite from './assets/reasoning-evolution-ascii.png';
 
-const EffortIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h7m4 0h5M4 17h2m4 0h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/><circle cx="13" cy="7" r="2" stroke="currentColor" strokeWidth="1.6"/><circle cx="8" cy="17" r="2" stroke="currentColor" strokeWidth="1.6"/></svg>;
+// Individual viewports preserve every pose and prop in the generated ASCII sheet.
+const evolutionFrames = [[0,440],[440,380],[815,405],[1220,480],[1700,472]];
+function EvolutionFigure({index}) {
+  const clipId = useId();
+  const [x,width] = evolutionFrames[index] ?? evolutionFrames[0];
+  return <svg className="personal-effort-figure" viewBox={`${x} 0 ${width} 724`} aria-hidden="true" focusable="false">
+    <defs><clipPath id={clipId}><rect x={x} width={width} height="724"/></clipPath></defs>
+    <image href={evolutionSprite} width="2172" height="724" clipPath={`url(#${clipId})`}/>
+  </svg>;
+}
 export function ChatModelSelect({selection, onSelect, disabled, t}) {
   const [open, setOpen] = useState(null);
   const [search, setSearch] = useState('');
@@ -19,7 +29,7 @@ export function ChatModelSelect({selection, onSelect, disabled, t}) {
     const [menu,trigger] = refs(kind);
     if (menu.current.matches(':popover-open')) {close(kind);return;}
     const rect = trigger.current.getBoundingClientRect();
-    const width = Math.min(300,window.innerWidth-24);
+    const width = Math.min(kind==='effort'?340:300,window.innerWidth-24);
     setPosition({width,left:Math.max(12,Math.min(rect.right-width,window.innerWidth-width-12)),bottom:Math.max(12,window.innerHeight-rect.top+8),maxHeight:Math.max(100,rect.top-20)});
     setSearch(''); setOpen(kind); menu.current.showPopover();
     requestAnimationFrame(()=>{if(kind==='effort')menu.current?.focus({preventScroll:true});else menu.current?.querySelector('input, button')?.focus();});
@@ -38,7 +48,7 @@ export function ChatModelSelect({selection, onSelect, disabled, t}) {
     if(!open)return;
     const place=()=>{
       const [menu,trigger]=refs(open);
-      const r=trigger.current.getBoundingClientRect(),width=Math.min(300,window.innerWidth-24);
+      const r=trigger.current.getBoundingClientRect(),width=Math.min(open==='effort'?340:300,window.innerWidth-24);
       const height=Math.min(menu.current.scrollHeight+2,window.innerHeight-24);
       const above=r.top-height-8;
       const top=above>=12?above:Math.max(12,Math.min(r.bottom+8,window.innerHeight-height-12));
@@ -71,11 +81,10 @@ export function ChatModelSelect({selection, onSelect, disabled, t}) {
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 6 4 4 4-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
     </button>
     <div id={effortId} ref={effortMenu} popover="auto" role="dialog" aria-label={t('chatEffort')}
-      className="personal-model-menu personal-effort-menu" tabIndex={-1} style={position}
+      className="personal-model-menu personal-effort-menu" tabIndex={-1} style={{...position,'--effort-ratio':effortIndex/(CHAT_EFFORTS.length-1)}}
       onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();close('effort');}}}>
-      <div className="personal-effort-heading"><EffortIcon/><strong>{effort}</strong><span aria-hidden="true"/></div>
-      <div className="personal-effort-model">{model.name}</div>
-      <div className="personal-effort-slider" style={{'--effort-ratio':effortIndex/(CHAT_EFFORTS.length-1)}}>
+      <div className="personal-effort-evolution" aria-hidden="true"><div className="personal-effort-character"><EvolutionFigure key={effortIndex} index={effortIndex}/></div></div>
+      <div className="personal-effort-slider">
         <div className="personal-effort-track" aria-hidden="true"><div className="personal-effort-fill"/></div>
         <div className="personal-effort-ticks" aria-hidden="true">{CHAT_EFFORTS.map(level=><i key={level}/>)}</div>
         <div className="personal-effort-thumb" aria-hidden="true"/>
@@ -83,8 +92,9 @@ export function ChatModelSelect({selection, onSelect, disabled, t}) {
           aria-label={t('chatEffort')} aria-valuetext={effort}
           onChange={event=>onSelect({...selection,reasoningEffort:CHAT_EFFORTS[Number(event.target.value)]})}/>
       </div>
-      <div className="personal-effort-labels">{CHAT_EFFORTS.map(level=><button key={level} type="button" disabled={disabled}
-        aria-pressed={selection.reasoningEffort===level} onClick={()=>onSelect({...selection,reasoningEffort:level})}>{t('chatEffort_'+level)}</button>)}</div>
+      <div className="personal-effort-labels">{CHAT_EFFORTS.map((level,index)=><button key={level} type="button" disabled={disabled} style={{'--level-ratio':index/(CHAT_EFFORTS.length-1)}}
+        aria-label={t('chatEffort_'+level)} title={t('chatEffort_'+level)} aria-pressed={selection.reasoningEffort===level}
+        onClick={()=>onSelect({...selection,reasoningEffort:level})}>{t('chatEffortLabel_'+level)}</button>)}</div>
     </div>
     <div id={modelId} ref={modelMenu} popover="auto" role="menu" aria-label={t('chatSelectModel')} className="personal-model-menu" style={position}
       onKeyDown={navigateModels}>
