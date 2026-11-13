@@ -4,7 +4,7 @@ const COMPONENTS = [
   '[contenteditable]:not([contenteditable="false"])', '[role="button"]', '[role="dialog"]',
   '[role="menu"]', '[role="listbox"]', '[role="slider"]', '[role="tab"]',
   '[data-composer-card]', '[data-slot="sidebar"]', '[data-slot="sidebar.right"]',
-  '.profile-stats', '.profile-activity', '.profile-toolbar > *', '.profile-identity > *',
+  '.profile-stats', '.profile-activity', '.profile-heading',
   '[class$="_headline"]', '[data-chat-message]', '[data-message-id]',
   '.personal-project-panel', '.personal-message', '.personal-chat-title', '.personal-chat-history',
   '.guestbook-thread', '.guestbook-composer', '.guestbook-heading', '.guestbook-empty',

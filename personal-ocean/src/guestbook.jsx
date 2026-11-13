@@ -162,7 +162,7 @@ export function GuestbookPage({ t, api }) {
   };
   const replied = id => setFeed(value=>({...value,items:value.items.map(item=>item.id===id?{...item,replyCount:(item.replyCount||0)+1}:item)}));
   return <section className="personal-guestbook" aria-label={t('guestbook')}><div className="guestbook-wrap">
-    <header className="guestbook-heading"><div className="guestbook-heading-symbol"><GuestbookIcon size={25}/></div><h1>{t('guestbook')}</h1><p>{t('intro')}</p></header>
+    <header className="guestbook-heading"><h1>{t('guestbook')}</h1><p>{t('intro')}</p></header>
     <MessageComposer t={t} onSubmit={post}/>
     <div className="guestbook-feed" aria-label={t('messageList')} aria-busy={feed.busy}>
       {feed.items.map(comment=><MessageThread key={comment.id} comment={comment} t={t} api={api} onReplyPosted={replied}/>)}
