@@ -107,7 +107,8 @@ html[data-personal-ocean] [data-slot=sidebar] [class$='_moreAnchor'],html[data-p
 @keyframes effort-reveal{from{opacity:.25}to{opacity:1}}
 .personal-effort-slider{position:relative;height:var(--effort-thumb-size);isolation:isolate}
 .personal-effort-track{position:absolute;inset:0;overflow:hidden;border-radius:999px;background:var(--dsw-alias-interactive-bg-hover);box-shadow:inset 0 0 0 1px var(--ocean-line);pointer-events:none}
-.personal-effort-fill{height:100%;width:calc(var(--effort-x) - var(--effort-thumb-size)/2);background:#397fc4}
+.personal-effort-fill{height:100%;width:var(--effort-x);background:#397fc4}
+.personal-effort-menu:has(.personal-effort-labels button:first-child[aria-pressed=true]) .personal-effort-fill{width:0}
 .personal-effort-thumb{position:absolute;left:var(--effort-x);top:0;transform:translateX(-50%);width:var(--effort-thumb-size);height:var(--effort-thumb-size);box-sizing:border-box;border:1px solid #0000000a;border-radius:50%;background:#fff;box-shadow:0 1px 5px #0002;pointer-events:none;z-index:1}
 .personal-model-menu .personal-effort-slider input{appearance:none;-webkit-appearance:none;position:absolute;inset:0;display:block;box-sizing:border-box;width:100%;height:100%;margin:0;padding:0;border:0;border-radius:999px;opacity:0;background:transparent;cursor:pointer;z-index:2}
 .personal-effort-slider input::-webkit-slider-runnable-track{height:var(--effort-thumb-size);border:0;background:transparent}

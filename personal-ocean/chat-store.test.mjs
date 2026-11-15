@@ -40,6 +40,54 @@ function storageFor(t, seed = []) {
   return values;
 }
 
+test('three failed manual retries keep one unanswered message, preserve earlier history, and succeed without duplicates', async t => {
+  storageFor(t);
+  const requests=[];
+  let failures=0;
+  const store=createChatStore({requestChat:async payload=>{
+    requests.push(payload.messages);
+    if(payload.messages.at(-1).content==='retry this' && failures++<3) throw new Error('timeout');
+    return {content:'answer'};
+  }});
+  t.after(()=>store.dispose());
+  store.draft('earlier question');await store.send();
+  const earlier=[{role:'user',content:'earlier question'},{role:'assistant',content:'answer'}];
+  store.draft('retry this');
+  for(let attempt=0;attempt<3;attempt++) {
+    await store.send();
+    assert.deepEqual(requests.at(-1),[...earlier,{role:'user',content:'retry this'}]);
+    const state=store.getSnapshot();
+    assert.equal(state.busy,false);
+    assert.equal(state.error,'timeout');
+    assert.equal(state.draft,'retry this');
+    assert.deepEqual(state.chats[0].messages,[...earlier,{role:'user',content:'retry this'}]);
+  }
+  await store.send();
+  assert.equal(requests.length,5,'one explicit send is one request; failures do not auto-retry');
+  assert.deepEqual(requests.at(-1),[...earlier,{role:'user',content:'retry this'}]);
+  assert.deepEqual(store.getSnapshot().chats[0].messages,[...earlier,{role:'user',content:'retry this'},{role:'assistant',content:'answer'}]);
+  assert.equal(store.getSnapshot().error,null);
+  assert.equal(store.getSnapshot().draft,'');
+  store.draft('retry this');await store.send();
+  assert.deepEqual(requests.at(-1),[...earlier,{role:'user',content:'retry this'},{role:'assistant',content:'answer'},{role:'user',content:'retry this'}]);
+});
+
+test('failed retry identity survives reload while an edited follow-up stays a distinct message', async t => {
+  const values=storageFor(t);
+  let store=createChatStore({requestChat:async()=>{throw new Error('upstream-unreachable');}});
+  store.draft('failed question');await store.send();
+  const id=store.getSnapshot().selected;
+  store.dispose();
+  const requests=[];
+  store=createChatStore({requestChat:async payload=>{requests.push(payload.messages);throw new Error('timeout');}});
+  store.select(id);store.draft('failed question');await store.send();
+  assert.deepEqual(requests[0],[{role:'user',content:'failed question'}]);
+  store.draft('edited follow-up');await store.send();
+  assert.deepEqual(requests[1],[{role:'user',content:'failed question'},{role:'user',content:'edited follow-up'}]);
+  assert.deepEqual(JSON.parse(values.get('personal-ocean.chats.v1.projects')).chats[0].messages,requests[1]);
+  store.dispose();
+});
+
 test('projects and independent chats retain their own membership across reloads and requests', async t => {
   storageFor(t);
   const requests=[];

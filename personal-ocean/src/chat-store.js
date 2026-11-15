@@ -138,7 +138,12 @@ export function createChatStore({requestChat} = {}) {
       const chat = {...(previous ?? {id:crypto.randomUUID(), title:content.slice(0,36), projectId:state.projectId, messages:[]})};
       chat.selection = {...state.selection};
       chat.selectionVersion = SELECTION_VERSION;
-      chat.messages = [...chat.messages, {role:'user',content}];
+      // Only reuse a known failed, unanswered turn. Identical questions after a
+      // successful reply remain separate messages, including after a reload.
+      const retryLast = chat.failedMessageIndex === chat.messages.length - 1
+        && chat.messages.at(-1)?.role === 'user' && chat.messages.at(-1).content === content;
+      chat.messages = retryLast ? [...chat.messages] : [...chat.messages, {role:'user',content}];
+      delete chat.failedMessageIndex;
       const pending = new AbortController(); controller = pending;
       publish({chats:[chat,...state.chats.filter(c => c.id !== chat.id)],selected:chat.id,draft:'',busy:true,error:null});
       try {
@@ -162,7 +167,8 @@ export function createChatStore({requestChat} = {}) {
         publish({chats:state.chats.map(c => c.id === chat.id ? {...c,messages:[...c.messages,{role:'assistant',content:result.content}]} : c),busy:false});
       } catch (error) {
         if (controller !== pending) return;
-        publish({busy:false,error:error.name === 'AbortError' ? null : error.message,draft:content});
+        publish({chats:state.chats.map(c => c.id === chat.id ? {...c,failedMessageIndex:chat.messages.length - 1} : c),
+          busy:false,error:error.name === 'AbortError' ? null : error.message,draft:content});
       } finally { if (controller === pending) controller = null; }
     },
     dispose: () => { controller?.abort(); listeners.clear(); },
