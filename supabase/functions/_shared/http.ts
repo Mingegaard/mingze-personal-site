@@ -69,9 +69,25 @@ export async function visitorHash(request: Request): Promise<string> {
 export async function requestHash(request: Request, env: Env): Promise<string> {
   const salt = env('REQUEST_HASH_SALT');
   if (!salt || salt.length < 32) throw new ApiError(503, 'unconfigured');
-  // IP limits are defense in depth; the global SQL budgets remain authoritative.
-  const address = request.headers.get('cf-connecting-ip')
-    ?? request.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'unknown';
+  // The hosted endpoint is behind Cloudflare. Never fall back to client-supplied
+  // forwarding chains: their first entry can be forged to evade the quota.
+  const raw = request.headers.get('cf-connecting-ip')?.trim() ?? '';
+  let address = '';
+  if (/^(?:0|[1-9]\d{0,2})(?:\.(?:0|[1-9]\d{0,2})){3}$/.test(raw)
+    && raw.split('.').every(part => Number(part) <= 255)) {
+    address = raw;
+  } else if (raw.includes(':') && /^[\da-f:.]+$/i.test(raw)) {
+    try {
+      address = new URL(`http://[${raw}]/`).hostname.slice(1, -1);
+      // IPv4-mapped IPv6 and plain IPv4 share one quota.
+      const mapped = /^::ffff:([\da-f]{1,4}):([\da-f]{1,4})$/.exec(address);
+      if (mapped) {
+        const high = parseInt(mapped[1], 16), low = parseInt(mapped[2], 16);
+        address = [high >> 8, high & 255, low >> 8, low & 255].join('.');
+      }
+    } catch { /* Reject malformed addresses below. */ }
+  }
+  if (!address) throw new ApiError(503, 'unavailable');
   return digest(`${salt}:${address}`);
 }
 
@@ -87,7 +103,7 @@ export function createRpc(env: Env, fetchImpl: typeof fetch = fetch): Rpc {
     const result = await response.json();
     if (!response.ok) {
       const code = result?.message;
-      const statuses: Record<string, number> = { 'visitor': 401, 'blocked': 403, 'conflict': 409, 'rate-limit': 429, 'daily-limit': 429, 'busy': 429, 'not-found': 404, 'invalid': 400 };
+      const statuses: Record<string, number> = { 'visitor': 401, 'blocked': 403, 'conflict': 409, 'rate-limit': 429, 'ip-limit': 429, 'daily-limit': 429, 'busy': 429, 'not-found': 404, 'invalid': 400 };
       throw new ApiError(statuses[code] ?? 503, statuses[code] ? code : 'unavailable');
     }
     return result;

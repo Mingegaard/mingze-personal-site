@@ -6,6 +6,7 @@ import { ChatModelSelect } from './chat-model-select.jsx';
 
 const CHAT_ERROR_KEYS = new Map([
   ['balance', 'chatBalance'],
+  ['ip-limit', 'chatBalance'],
   ['timeout', 'chatTimeout'],
   ['upstream-unreachable', 'chatConnectionError'],
   ['busy', 'chatBusy'],

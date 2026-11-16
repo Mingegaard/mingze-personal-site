@@ -36,10 +36,16 @@
 
 全站最多同时 3 个模型请求，单访客 1 个；每访客每分钟 3 次、每天 15 次；来源每小时 30 次。预留账本与并发租约在一个事务内更新，跨多个 Edge Function 实例共享，不能通过并发绕过；租约 3 分钟自动过期。中止请求不保证上游停止计费，因此仍计入当日预算。
 
+同一来源 IP 的摘要在**滚动 24 小时内最多预留 5 次 AI 请求**，与访客身份无关；清空浏览器数据、重新注册访客或跨过 UTC 零点均不重置额度。第 6 次在调用模型之前返回 `ip-limit`，前端按既有余额不足提示展示。完成、失败、中止或租约过期均不返还这 5 次额度；被限额拒绝的请求不会新增预留，也不会占用其他限流计数。留言和回复使用独立账本，不计入 AI 次数。
+
+数据库仅保存服务端计算的带盐 `request_hash`，不保存原始 IP。窗口条件为 `created_at > now() - interval '24 hours'`，恰好满 24 小时的记录不再计数。旧预留保留为 `request_hash = null`，仍计入原有全站预算，不能追溯归属于某个 IP；新预留 RPC 拒绝空或非法摘要及空预算参数。摘要和时间的复合索引用于窗口计数；配额检查与插入继续持有原全局事务锁。若轮换 `REQUEST_HASH_SALT`，已有摘要将无法与新摘要对应，因此会重置按来源统计的窗口；不要把轮换当作日常刷新操作。
+
+来源识别依赖 Supabase 托管入口的 Cloudflare 覆盖并提供 `CF-Connecting-IP`；后端只接受合法单个 IPv4/IPv6 地址并规范化，不接受浏览器自行提供的身份字段，不退回 `X-Forwarded-For` 或 `unknown`。缺少可信来源时停止请求。代理、公司网络或家庭网络共用同一出口 IP 的访客会共享这 5 次额度；更换网络也会改变来源。上线检查应验证托管入口确实覆盖伪造的该请求头，不能仅凭 CORS 认为来源可信。
+
 `functions/personal-chat/profile.ts` 是 `personal-ocean/prompts/mingze.txt` 生成的纯源码模块。改变个人 Prompt 后运行 `node supabase/sync-prompt.mjs` 并重新部署函数；无需静态文件打包，兼容 Supabase API 部署。
 
 ## 验证
 
-先运行 `npm ci --prefix supabase/tests --ignore-scripts` 安装锁定的测试依赖，再运行 `node --test supabase/tests/backend.test.mjs supabase/tests/database.test.mjs`。HTTP 层测试使用模拟模型请求；数据库测试在本地 PGlite PostgreSQL 中执行完整 schema，验证回复关联、游标分页、幂等重试、匿名 RLS 权限、封禁区分及 AI 预算。测试不连接远程 Supabase、不调用付费模型。
+先运行 `npm ci --prefix supabase/tests --ignore-scripts` 安装锁定的测试依赖，再运行 `node --test supabase/tests/backend.test.mjs supabase/tests/database.test.mjs`。HTTP 层测试使用模拟模型请求；数据库测试在本地 PGlite PostgreSQL 中执行完整 schema 和从旧结构升级的迁移，验证回复关联、游标分页、幂等重试、匿名 RLS 权限、封禁区分、AI 预算以及跨访客共享的来源窗口上限、窗口边界、跨 UTC 日和失败不返还。测试不连接远程 Supabase、不调用付费模型。PGlite 只提供单连接执行；并发提交测试能验证排队后的配额与租约行为，不能模拟真实多连接抢锁，仍需线上或独立 PostgreSQL 的跨连接验证。
 
 部署后仍需检查 Supabase advisors、实际网关/CORS 配置与跨连接并发，不能以本地验证替代上线检查。

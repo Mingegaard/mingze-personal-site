@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createGuestbookHandler } from '../functions/guestbook/handler.ts';
 import { createChatHandler } from '../functions/personal-chat/handler.ts';
-import { ApiError, createRpc, digest, makeCursor, readCursor } from '../functions/_shared/http.ts';
+import { ApiError, createRpc, digest, makeCursor, readCursor, requestHash } from '../functions/_shared/http.ts';
 import { PROFILE } from '../functions/personal-chat/profile.ts';
 
 const allowedOrigin = 'https://mingegaard.github.io';
@@ -12,7 +12,7 @@ const env = name => values[name];
 const id = number => `00000000-0000-4000-8000-${String(number).padStart(12, '0')}`;
 const token = 'a'.repeat(64);
 const req = (body, options = {}) => new Request('https://example.supabase.co/functions/v1/guestbook' + (options.query ?? ''), {
-  method: body ? 'POST' : 'GET', headers: { Origin: allowedOrigin, 'X-Visitor-Token': token, ...options.headers },
+  method: body ? 'POST' : 'GET', headers: { Origin: allowedOrigin, 'X-Visitor-Token': token, 'CF-Connecting-IP': '192.0.2.1', ...options.headers },
   ...(body ? { body: JSON.stringify(body.action === 'post' ? { requestId: id(900), ...body } : body) } : {}),
 });
 
@@ -170,6 +170,42 @@ test('chat quota rejection prevents paid calls and upstream failure still finish
   const failing = createChatHandler({ env, profile: 'profile', rpc: async name => { events.push(name); return id(1); }, fetchImpl: async () => new Response('secret error', { status: 402 }) });
   assert.deepEqual(await (await failing(req({ messages: [{ role: 'user', content: 'hello' }] }))).json(), { error: 'balance' });
   assert.deepEqual(events, ['site_reserve_ai_request', 'site_finish_ai_request']);
+});
+
+test('IP quota denial survives the RPC boundary without calling or retrying the paid provider', async () => {
+  let rpcCalls = 0, providerCalls = 0;
+  const rpc = createRpc(name => ({ SUPABASE_URL: 'https://example.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'test-admin' })[name], async (url, options) => {
+    rpcCalls++;
+    assert.ok(url.endsWith('/rpc/site_reserve_ai_request'));
+    assert.equal(JSON.parse(options.body).p_request_hash, await digest(`${values.REQUEST_HASH_SALT}:192.0.2.1`));
+    return Response.json({ message: 'ip-limit' }, { status: 400 });
+  });
+  const handler = createChatHandler({ env, profile: 'profile', rpc, fetchImpl: async () => { providerCalls++; throw new Error('must not call'); } });
+  const response = await handler(req({ messages: [{ role: 'user', content: 'hello' }] }));
+  assert.equal(response.status, 429);
+  assert.deepEqual(await response.json(), { error: 'ip-limit' });
+  assert.equal(rpcCalls, 1);
+  assert.equal(providerCalls, 0);
+});
+
+test('source hashes normalize IP addresses and ignore forged forwarding chains', async () => {
+  const hashed = headers => requestHash(req(null, { headers }), env);
+  const ipv4 = await hashed({});
+  assert.equal(ipv4, await hashed({ 'CF-Connecting-IP': '::ffff:192.0.2.1' }));
+  assert.equal(ipv4, await hashed({ 'X-Forwarded-For': '203.0.113.9, 127.0.0.1', 'X-Real-IP': '203.0.113.9' }));
+  assert.notEqual(ipv4, await hashed({ 'CF-Connecting-IP': '192.0.2.2' }));
+  assert.equal(await hashed({ 'CF-Connecting-IP': '2001:db8::a' }), await hashed({ 'CF-Connecting-IP': '2001:0DB8:0000:0000:0000:0000:0000:000A' }));
+  for (const raw of ['', 'unknown', '192.0.2.1, 192.0.2.2', '192.0.2.1:443', '300.0.2.1', '192.000.2.1', '[2001:db8::a]', '::1%lo', '::::']) {
+    await assert.rejects(hashed({ 'CF-Connecting-IP': raw, 'X-Forwarded-For': '192.0.2.1', 'X-Real-IP': '192.0.2.1' }), error => error instanceof ApiError && error.status === 503);
+  }
+});
+
+test('chat fails closed before reserving or spending when the trusted source address is absent', async () => {
+  let calls = 0;
+  const handler = createChatHandler({ env, profile: 'profile', rpc: async () => { calls++; }, fetchImpl: async () => { calls++; } });
+  const response = await handler(req({ messages: [{ role: 'user', content: 'hello' }] }, { headers: { 'CF-Connecting-IP': '', 'X-Forwarded-For': '192.0.2.1' } }));
+  assert.equal(response.status, 503);
+  assert.equal(calls, 0);
 });
 
 test('chat rejects injected system messages, unsupported model, invalid efforts, and oversized bodies before a reservation', async () => {
