@@ -76,11 +76,12 @@ const effortHelpCopy = {
 };
 for (const [locale,[label,notice]] of Object.entries(effortHelpCopy)) Object.assign(profileLocales[locale],{chatEffortHelp:label,chatEffortNotice:notice});
 
-// Keep the five slider captions readable while retaining full accessible names.
-const compactEfforts = {es:{off:'Desact.'},fr:{off:'Désact.'},pt:{off:'Desat.'},ru:{max:'Макс.'}};
-for (const [locale,copy] of Object.entries(profileLocales)) for (const level of ['off','low','medium','high','max']) {
- copy['chatEffortLabel_'+level] = compactEfforts[locale]?.[level] ?? copy['chatEffort_'+level];
-}
+const effortEndpoints = {
+ zh:['原始人','聪明如我'],en:['Caveman','Smart like me'],ja:['原始人','私並みに賢い'],
+ es:['Cavernícola','Tan listo como yo'],fr:['Primitif','Malin comme moi'],
+ de:['Urmensch','So schlau wie ich'],ru:['Первобытный','Умный, как я'],pt:['Primitivo','Esperto como eu'],
+};
+for (const [locale,[primitive,smart]] of Object.entries(effortEndpoints)) Object.assign(profileLocales[locale],{chatEffortPrimitive:primitive,chatEffortSmart:smart});
 
 const balanceCopy = {
  zh:'由于网站主人贫困导致模型服务余额不足，点击此处捐款。',

@@ -160,7 +160,7 @@ export function ChatModelSelect({selection, onSelect, disabled, t}) {
     const width = Math.min(kind==='effort'?340:300,window.innerWidth-24);
     setPosition({width,left:Math.max(12,Math.min(rect.right-width,window.innerWidth-width-12)),bottom:Math.max(12,window.innerHeight-rect.top+8),maxHeight:Math.max(100,rect.top-20)});
     setSearch(''); setBloom(false); endDrag(); setOpen(kind); menu.current.showPopover();
-    requestAnimationFrame(()=>{if(kind==='effort')menu.current?.focus({preventScroll:true});else menu.current?.querySelector('input, button')?.focus();});
+    requestAnimationFrame(()=>{if(kind==='effort')menu.current?.querySelector('input[type="range"]')?.focus({preventScroll:true});else menu.current?.querySelector('input, button')?.focus();});
   };
   // Listen to the native event so outside clicks and Escape also reset the trigger.
   useEffect(()=>{
@@ -213,7 +213,10 @@ export function ChatModelSelect({selection, onSelect, disabled, t}) {
       data-bloom={bloom&&open==='effort'&&selection.reasoningEffort==='max'||undefined} tabIndex={-1}
       style={{...position,'--effort-ratio':effortIndex/(CHAT_EFFORTS.length-1)}}
       onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();close('effort');}}}>
-      <EffortHelp t={t} open={open==='effort'}/>
+      <div className="personal-effort-header">
+        <div className="personal-effort-heading"><span>{t('chatEffort')}</span><span className="personal-effort-current">{effort}</span></div>
+        <EffortHelp t={t} open={open==='effort'}/>
+      </div>
       <div className="personal-effort-slider">
         <div className="personal-effort-track" aria-hidden="true"><div className="personal-effort-fill"><EffortTrail/></div></div>
         <div className="personal-effort-ticks" aria-hidden="true">{CHAT_EFFORTS.map(level=><i key={level}/>)}</div>
@@ -229,9 +232,7 @@ export function ChatModelSelect({selection, onSelect, disabled, t}) {
           onPointerUp={endDrag} onPointerCancel={endDrag} onLostPointerCapture={endDrag}
           onChange={event=>selectEffort(CHAT_EFFORTS[Number(event.target.value)])}/>
       </div>
-      <div className="personal-effort-labels">{CHAT_EFFORTS.map((level,index)=><button key={level} type="button" disabled={disabled} style={{'--level-ratio':index/(CHAT_EFFORTS.length-1)}}
-        aria-label={t('chatEffort_'+level)} title={t('chatEffort_'+level)} aria-pressed={selection.reasoningEffort===level}
-        onClick={()=>selectEffort(level)}>{t('chatEffortLabel_'+level)}</button>)}</div>
+      <div className="personal-effort-endpoints"><span>{t('chatEffortPrimitive')}</span><span>{t('chatEffortSmart')}</span></div>
     </div>
     <div id={modelId} ref={modelMenu} popover="auto" role="menu" aria-label={t('chatSelectModel')} className="personal-model-menu" style={position}
       onKeyDown={navigateModels}>

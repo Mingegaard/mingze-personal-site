@@ -100,8 +100,11 @@ html[data-personal-ocean] [data-slot=sidebar] [class$='_moreAnchor'],html[data-p
 .personal-effort-trigger svg{flex:none;color:var(--dsw-alias-label-caption)}
 .personal-effort-trigger:hover,.personal-effort-trigger[aria-expanded=true]{background:var(--dsw-alias-interactive-bg-hover);color:#397fc4}
 .personal-effort-trigger:disabled{opacity:.5;cursor:default}
-.personal-effort-menu{--effort-thumb-size:48px;--effort-thumb-lead:16px;--effort-thumb-height:52px;--effort-track-height:32px;--effort-x:calc(var(--effort-thumb-size)/2 + (100% - var(--effort-thumb-size))*var(--effort-ratio));overflow-x:hidden;padding:32px 20px 14px;border-radius:22px;box-shadow:0 14px 44px #162f4726}
-.personal-effort-help{position:absolute;top:7px;right:12px;z-index:3}
+.personal-effort-menu{--effort-thumb-size:48px;--effort-thumb-lead:16px;--effort-thumb-height:52px;--effort-track-height:32px;--effort-x:calc(var(--effort-thumb-size)/2 + (100% - var(--effort-thumb-size))*var(--effort-ratio));overflow-x:hidden;padding:16px 20px;border-radius:16px;box-shadow:0 12px 36px #162f471c}
+.personal-effort-header{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:24px;margin-bottom:18px}
+.personal-effort-heading{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;min-width:0;font-size:13px;line-height:20px;color:var(--dsw-alias-label-caption)}
+.personal-effort-current{color:var(--dsw-alias-label-primary);white-space:nowrap}
+.personal-effort-help{position:relative;flex:none;margin-right:-4px;z-index:3}
 .personal-effort-menu .personal-effort-help-button{display:grid;place-items:center;width:24px;height:24px;min-height:0;padding:0;border-radius:50%;color:var(--dsw-alias-label-secondary)}
 .personal-effort-menu .personal-effort-help-button:hover{color:#397fc4}
 .personal-effort-help-tooltip{position:fixed;inset:auto;margin:0;box-sizing:border-box;max-width:calc(100vw - 32px);padding:10px 12px;border:1px solid var(--ocean-line);border-radius:12px;background:var(--dsw-alias-background-elevated,var(--ocean-paper));color:var(--dsw-alias-label-secondary);box-shadow:0 6px 24px #0002;font-family:inherit;font-size:12px;line-height:1.65;text-align:left;overflow-wrap:anywhere;pointer-events:none}
@@ -157,11 +160,9 @@ body[data-ds-dark-theme] .personal-effort-menu{--effort-accent-cyan:#43d9e2;--ef
 .personal-effort-menu:focus{outline:none}
 .personal-effort-ticks{position:absolute;inset:0 calc(var(--effort-thumb-size)/2 - 2px);display:flex;align-items:center;justify-content:space-between;pointer-events:none}
 .personal-effort-ticks i{width:4px;height:4px;flex:none;border-radius:50%;background:var(--dsw-alias-label-caption);opacity:.55}
-.personal-effort-labels{position:relative;height:30px;margin-top:4px}
-.personal-effort-menu .personal-effort-labels button{position:absolute;left:calc(var(--effort-thumb-size)/2 + (100% - var(--effort-thumb-size))*var(--level-ratio));transform:translateX(-50%);display:block;width:max-content;min-height:28px;padding:4px 5px;font-size:11px;line-height:20px;text-align:center;white-space:nowrap;color:var(--dsw-alias-label-secondary)}
-.personal-effort-menu .personal-effort-labels button[aria-pressed=true]{color:#397fc4;background:#397fc415}
+.personal-effort-endpoints{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-top:12px;font-size:13px;line-height:20px;color:var(--dsw-alias-label-caption)}
+.personal-effort-endpoints span:last-child{text-align:right}
 body[data-ds-dark-theme] .personal-effort-figure{filter:brightness(1.1)}
-body[data-ds-dark-theme] .personal-effort-menu .personal-effort-labels button[aria-pressed=true]{color:#8bcaff;background:#397fc426}
 body[data-ds-dark-theme] .personal-effort-aura{color:#aac7ed}
 @media(prefers-reduced-motion:reduce){.personal-effort-menu :is(.personal-effort-fill,.personal-effort-thumb,.personal-effort-figure,.personal-effort-pose,.personal-effort-aura,.personal-effort-gradient-layer,.personal-effort-pixel-layer){transition:none}.personal-effort-menu :is(.personal-effort-glow,.personal-effort-pixel,.personal-effort-accent,.personal-effort-ray,.personal-effort-figure-bloom,.personal-effort-bloom-halo,.personal-effort-burst-ray){animation:none!important}.personal-effort-ray,.personal-effort-bloom-halo,.personal-effort-burst-ray{opacity:0}}
 
