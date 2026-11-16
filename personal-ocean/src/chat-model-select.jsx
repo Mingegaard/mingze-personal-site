@@ -80,14 +80,15 @@ function EffortTrail() {
       <linearGradient id={gradientId}>
         <stop stopColor="var(--effort-pixel-blue)" stopOpacity="0"/>
         <stop offset=".2" stopColor="var(--effort-pixel-blue)" stopOpacity=".01"/>
-        <stop offset=".55" stopColor="var(--effort-pixel-blue)" stopOpacity=".17"/>
-        <stop offset="1" stopColor="var(--effort-pixel-blue)" stopOpacity=".72"/>
+        <stop offset=".55" stopColor="var(--effort-pixel-blue)" stopOpacity=".12"/>
+        <stop offset="1" stopColor="var(--effort-pixel-blue)" stopOpacity=".94"/>
       </linearGradient>
       <linearGradient id={pixelGradientId} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2={width || 1} y2="0">
         <stop stopColor="var(--effort-trail-start)" stopOpacity="0"/>
-        <stop offset=".1" stopColor="var(--effort-trail-start)" stopOpacity=".22"/>
-        <stop offset=".3" stopColor="var(--effort-trail-start)" stopOpacity=".55"/>
-        <stop offset=".6" stopColor="var(--effort-trail-middle)" stopOpacity=".88"/>
+        <stop offset=".12" stopColor="var(--effort-trail-start)" stopOpacity=".04"/>
+        <stop offset=".35" stopColor="var(--effort-trail-start)" stopOpacity=".24"/>
+        <stop offset=".65" stopColor="var(--effort-trail-middle)" stopOpacity=".72"/>
+        <stop offset=".85" stopColor="var(--effort-trail-end)" stopOpacity=".95"/>
         <stop offset="1" stopColor="var(--effort-trail-end)"/>
       </linearGradient>
     </defs>
@@ -105,7 +106,7 @@ function EffortTrail() {
         <rect {...cell} className="personal-effort-pixel" fill={`url(#${pixelGradientId})`}
           style={{'--pixel-duration':`${duration}s`,'--pixel-delay':`${-duration*phase}s`,'--pixel-dim':.1+progress*.48,'--pixel-mid':.3+progress*.42,'--pixel-rest':.72+progress*.28}}/>
         {accent&&<rect {...cell} className="personal-effort-accent" fill={`var(--effort-accent-${['cyan','yellow','red'][accentHash%3]})`}
-          style={{'--accent-duration':`${2.2+seed*.012}s`,'--accent-delay':`${-phase*(2.2+seed*.012)}s`,'--accent-peak':.9*Math.min(1,progress/.7),'--accent-rest':.15*progress}}/>}
+          style={{'--accent-duration':`${2.2+seed*.012}s`,'--accent-delay':`${-phase*(2.2+seed*.012)}s`,'--accent-peak':.9*Math.pow(progress,1.35),'--accent-rest':.15*Math.pow(progress,1.35)}}/>}
       </g>;
     })}</g>
   </svg>;

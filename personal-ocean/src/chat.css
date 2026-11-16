@@ -109,7 +109,7 @@ html[data-personal-ocean] [data-slot=sidebar] [class$='_moreAnchor'],html[data-p
 .personal-effort-menu .personal-effort-help-button:hover{color:#397fc4}
 .personal-effort-help-tooltip{position:fixed;inset:auto;margin:0;box-sizing:border-box;max-width:calc(100vw - 32px);padding:10px 12px;border:1px solid var(--ocean-line);border-radius:12px;background:var(--dsw-alias-background-elevated,var(--ocean-paper));color:var(--dsw-alias-label-secondary);box-shadow:0 6px 24px #0002;font-family:inherit;font-size:12px;line-height:1.65;text-align:left;overflow-wrap:anywhere;pointer-events:none}
 /* Optical pose offsets leave the native slider geometry stable while dragging. */
-.personal-effort-menu{--effort-track-bg:#eef0f2;--effort-track-border:#d9dde2;--effort-figure-outline:#193a63;--effort-pixel-blue:#477fb9;--effort-trail-start:#6884a8;--effort-trail-middle:#4a78ae;--effort-trail-end:#285e9e}
+.personal-effort-menu{--effort-track-bg:#eef0f2;--effort-track-border:#d9dde2;--effort-figure-outline:#193a63;--effort-pixel-blue:#477fb9;--effort-trail-start:#6884a8;--effort-trail-middle:#4a78ae;--effort-trail-end:#1e4e87}
 body[data-ds-dark-theme] .personal-effort-menu{--effort-track-bg:#30343a;--effort-track-border:#41474f;--effort-pixel-blue:#6493cb;--effort-trail-start:#46648c;--effort-trail-middle:#729acf;--effort-trail-end:#c2d7f3}
 .personal-effort-menu{--effort-accent-cyan:#16bcc8;--effort-accent-yellow:#e9b938;--effort-accent-red:#e65b6b}
 body[data-ds-dark-theme] .personal-effort-menu{--effort-accent-cyan:#43d9e2;--effort-accent-yellow:#f3cf5a;--effort-accent-red:#f77f8b}
