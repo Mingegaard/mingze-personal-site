@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { PersonalChat, ChatHistory } from '../../personal-ocean/src/chat.jsx';
 import { createChatStore } from '../../personal-ocean/src/chat-store.js';
 import { ProfilePage, ProfileIcon } from '../../personal-ocean/src/profile.jsx';
@@ -11,14 +11,16 @@ import { mountRipples } from '../../personal-ocean/src/ripples.js';
 import personalLogo from '../../personal-ocean/src/assets/mingze-logo.png';
 import personalMark from '../../personal-ocean/src/assets/mingze-mark.png';
 import { languages, shellLocales, translator } from './locales.js';
+import { settingsLocales } from './settings-locales.js';
+import { Settings } from './Settings.jsx';
 import '../../personal-ocean/src/ocean.css';
 import '../../personal-ocean/src/chat.css';
 import '../../personal-ocean/src/profile.css';
 import '../../personal-ocean/src/guestbook.css';
 import './site.css';
 
-const preferences = { locale: 'personal-ocean.site.locale', theme: 'personal-ocean.site.theme', sidebar: 'personal-ocean.site.sidebar' };
-const dictionaries = Object.fromEntries(languages.map(([locale]) => [locale, { ...profileLocales[locale], ...shellLocales[locale] }]));
+const preferences = { locale: 'personal-ocean.site.locale', theme: 'personal-ocean.site.theme', sidebar: 'personal-ocean.site.sidebar', fontSize:'personal-ocean.site.font-size',fontFamily:'personal-ocean.site.font-family' };
+const dictionaries = Object.fromEntries(languages.map(([locale]) => [locale, { ...profileLocales[locale], ...shellLocales[locale],...settingsLocales[locale] }]));
 function savedPreference(key, fallback) {
   try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; }
 }
@@ -48,21 +50,6 @@ function Ocean() {
   }, []);
   return null;
 }
-function Settings({ t, locale, setLocale, theme, setTheme, onClose }) {
-  const dialog = useRef(null);
-  useEffect(() => { dialog.current.showModal(); }, []);
-  return <dialog ref={dialog} className="site-settings" aria-labelledby="site-settings-title" onClose={onClose} onClick={event => {
-    if (event.target !== dialog.current) return;
-    const rect = dialog.current.getBoundingClientRect();
-    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.current.close();
-  }}>
-    <header><h2 id="site-settings-title">{t('settings')}</h2><button type="button" className="site-icon-button" aria-label={t('close')} onClick={() => dialog.current.close()}><Icon kind="close"/></button></header>
-    <p>{t('settingsHint')}</p>
-    <label className="site-setting-row"><span>{t('language')}</span><select value={locale} onChange={event => setLocale(event.target.value)}>{languages.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-    <fieldset className="site-appearance"><legend>{t('appearance')}</legend><div>{['light', 'dark', 'system'].map(value => <button key={value} type="button" aria-pressed={theme === value} onClick={() => setTheme(value)}>{t(value)}</button>)}</div></fieldset>
-  </dialog>;
-}
-
 export function App() {
   const [locale, setLocale] = useState(() => {
     const saved = savedPreference(preferences.locale, navigator.language.startsWith('zh') ? 'zh' : 'en');
@@ -73,6 +60,14 @@ export function App() {
     return ['light', 'dark', 'system'].includes(saved) ? saved : 'light';
   });
   const [wide, setWide] = useState(() => savedPreference(preferences.sidebar, innerWidth >= 760 ? 'wide' : 'compact') === 'wide');
+  const [fontSize,setFontSize]=useState(()=>{
+    const saved=Number(savedPreference(preferences.fontSize,'14'));
+    return Number.isInteger(saved)&&saved>=12&&saved<=24?saved:14;
+  });
+  const [fontFamily,setFontFamily]=useState(()=>{
+    const saved=savedPreference(preferences.fontFamily,'').trim();
+    return saved.length<=200&&CSS.supports('font-family',saved)?saved:'';
+  });
   const [page, setPage] = useState(currentPage);
   const [settings, setSettings] = useState(false);
   const [usageRevision, setUsageRevision] = useState(0);
@@ -95,6 +90,8 @@ export function App() {
   }, []);
   useEffect(() => { document.documentElement.lang = locale; savePreference(preferences.locale, locale); }, [locale]);
   useEffect(() => { savePreference(preferences.sidebar, wide ? 'wide' : 'compact'); }, [wide]);
+  useEffect(()=>{savePreference(preferences.fontSize,String(fontSize));document.documentElement.style.setProperty('--site-chat-font-size',`${fontSize}px`);},[fontSize]);
+  useEffect(()=>{savePreference(preferences.fontFamily,fontFamily);if(fontFamily)document.documentElement.style.setProperty('--site-font-family',fontFamily);else document.documentElement.style.removeProperty('--site-font-family');},[fontFamily]);
   useEffect(() => {
     savePreference(preferences.theme, theme);
     const media = matchMedia('(prefers-color-scheme: dark)');
@@ -136,6 +133,6 @@ export function App() {
         {page === 'profile' ? <ProfilePage key={usageRevision} t={t} getLocale={() => locale}/> : page === 'guestbook' ? <GuestbookPage t={guestbookT} api={api}/> : <PersonalChat store={store} t={t}/>}
       </main>
     </div>
-    {settings && <Settings t={t} locale={locale} setLocale={setLocale} theme={theme} setTheme={setTheme} onClose={() => setSettings(false)}/>}
+    {settings && <Settings t={t} locale={locale} setLocale={setLocale} theme={theme} setTheme={setTheme} fontSize={fontSize} setFontSize={setFontSize} fontFamily={fontFamily} setFontFamily={setFontFamily} store={store} onClose={() => setSettings(false)}/>}
   </>;
 }
