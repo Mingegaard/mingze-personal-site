@@ -18,12 +18,12 @@ function EvolutionFigure({index}) {
         <feMorphology in="closedGaps" operator="erode" radius={unit} result="silhouette"/>
         <feMorphology in="silhouette" operator="dilate" radius={outline} result="expanded"/>
         <feComposite in="expanded" in2="silhouette" operator="out" result="rim"/>
-        <feFlood floodColor="#315b89"/>
+        <feFlood floodColor="#234d78"/>
         <feComposite in2="rim" operator="in" result="blueOutline"/>
         <feComponentTransfer in="SourceGraphic" result="lightFigure">
-          <feFuncR type="linear" slope=".42" intercept=".34"/>
-          <feFuncG type="linear" slope=".42" intercept=".52"/>
-          <feFuncB type="linear" slope=".42" intercept=".70"/>
+          <feFuncR type="linear" slope=".85" intercept=".10"/>
+          <feFuncG type="linear" slope=".75" intercept=".24"/>
+          <feFuncB type="linear" slope=".65" intercept=".34"/>
         </feComponentTransfer>
         <feMerge><feMergeNode in="blueOutline"/><feMergeNode in="lightFigure"/></feMerge>
       </filter>
@@ -45,15 +45,15 @@ function EffortTrail({index}) {
       <pattern id={pixelsId} width="96" height="30" patternUnits="userSpaceOnUse">
         {Array.from({length:80},(_,i)=>{
           const row=Math.floor(i/16),col=i%16,seed=(i*37+row*13)%101;
-          return <rect key={i} className="personal-effort-pixel" x={col*6+1} y={row*6+1} width="4" height="4" rx=".7"
-            fill={seed%5===0?'#effaff':seed%3===0?'#abdfff':'#6eb9f1'}
-            style={{'--pixel-duration':`${2+seed/55}s`,'--pixel-delay':`${-seed/23}s`,'--pixel-rest':.25+seed/180}}/>;
+          return <rect key={i} className="personal-effort-pixel" x={col*6+1} y={row*6+1} width="4" height="4" rx=".35"
+            fill={seed%5===0?'var(--effort-pixel-bright)':seed%3===0?'var(--effort-pixel-deep)':'var(--effort-pixel-blue)'}
+            style={{'--pixel-duration':`${2+seed/55}s`,'--pixel-delay':`${-seed/23}s`,'--pixel-rest':.7+seed/340}}/>;
         })}
       </pattern>
-      <linearGradient id={fadeId}><stop stopColor="#fff" stopOpacity="0"/><stop offset=".25" stopColor="#fff" stopOpacity=".03"/><stop offset=".6" stopColor="#fff" stopOpacity=".4"/><stop offset="1" stopColor="#fff"/></linearGradient>
+      <linearGradient id={fadeId}><stop stopColor="#fff" stopOpacity="0"/><stop offset=".2" stopColor="#fff" stopOpacity=".28"/><stop offset=".45" stopColor="#fff" stopOpacity=".74"/><stop offset=".7" stopColor="#fff"/><stop offset="1" stopColor="#fff"/></linearGradient>
       <mask id={maskId}><rect width="100%" height="100%" fill={`url(#${fadeId})`}/></mask>
     </defs>
-    <rect className="personal-effort-glow" width="100%" height="100%" fill={`url(#${gradientId})`}/>
+    {!peak&&<rect className="personal-effort-glow" width="100%" height="100%" fill={`url(#${gradientId})`}/>}
     {peak&&<rect width="100%" height="100%" fill={`url(#${pixelsId})`} mask={`url(#${maskId})`}/>}
   </svg>;
 }
