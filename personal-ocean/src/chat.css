@@ -102,8 +102,8 @@ html[data-personal-ocean] [data-slot=sidebar] [class$='_moreAnchor'],html[data-p
 .personal-effort-trigger:disabled{opacity:.5;cursor:default}
 .personal-effort-menu{--effort-thumb-size:48px;--effort-thumb-lead:16px;--effort-thumb-height:52px;--effort-track-height:32px;--effort-x:calc(var(--effort-thumb-size)/2 + (100% - var(--effort-thumb-size))*var(--effort-ratio));overflow-x:hidden;padding:16px 20px 14px;border-radius:22px;box-shadow:0 14px 44px #162f4726}
 /* Optical pose offsets leave the native slider geometry stable while dragging. */
-.personal-effort-menu{--effort-track-bg:#eef0f2;--effort-track-border:#d9dde2;--effort-figure-outline:#123b68;--effort-pixel-blue:#397fc4;--effort-pixel-deep:#2b649b;--effort-pixel-bright:#76b3e5}
-body[data-ds-dark-theme] .personal-effort-menu{--effort-track-bg:#30343a;--effort-track-border:#41474f;--effort-pixel-blue:#4c96d5;--effort-pixel-deep:#3478b5;--effort-pixel-bright:#88c4ef}
+.personal-effort-menu{--effort-track-bg:#eef0f2;--effort-track-border:#d9dde2;--effort-figure-outline:#193a63;--effort-pixel-blue:#477fb9;--effort-trail-start:#6884a8;--effort-trail-middle:#4a78ae;--effort-trail-end:#285e9e}
+body[data-ds-dark-theme] .personal-effort-menu{--effort-track-bg:#30343a;--effort-track-border:#41474f;--effort-pixel-blue:#6493cb;--effort-trail-start:#46648c;--effort-trail-middle:#729acf;--effort-trail-end:#c2d7f3}
 .personal-effort-menu[data-effort=off]{--effort-figure-shift:-16px}
 .personal-effort-menu[data-effort=medium],.personal-effort-menu[data-effort=high]{--effort-figure-shift:-4px}
 .personal-effort-menu[data-effort=max]{--effort-figure-shift:4px}
@@ -120,7 +120,7 @@ body[data-ds-dark-theme] .personal-effort-menu{--effort-track-bg:#30343a;--effor
 .personal-effort-menu[data-effort=off] .personal-effort-fill{width:0}
 .personal-effort-menu[data-effort=max] .personal-effort-fill{width:100%}
 @keyframes personal-effort-breathe{0%,100%{opacity:.65}50%{opacity:1}}
-@keyframes personal-effort-twinkle{0%,100%{opacity:.12}32%{opacity:1}62%{opacity:.22}80%{opacity:.5}}
+@keyframes personal-effort-twinkle{0%,100%{opacity:var(--pixel-dim)}32%{opacity:1}62%{opacity:var(--pixel-dim)}80%{opacity:var(--pixel-mid)}}
 @keyframes personal-effort-ray{0%,12%{opacity:0;transform:scale(.75)}28%{opacity:.78}85%,100%{opacity:0;transform:scale(1.12)}}
 @media(prefers-reduced-motion:reduce){.personal-effort-glow,.personal-effort-pixel,.personal-effort-ray{animation:none}.personal-effort-ray{opacity:0}}
 .personal-effort-thumb{position:absolute;left:calc(var(--effort-x) + var(--effort-thumb-lead));top:0;transform:translateX(-50%);width:var(--effort-thumb-size);height:var(--effort-thumb-height);pointer-events:none;z-index:1}

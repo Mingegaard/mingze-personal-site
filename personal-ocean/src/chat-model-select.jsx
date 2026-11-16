@@ -23,9 +23,9 @@ function EvolutionFigure({index}) {
         <feComposite in2="rim" operator="in" result="blueOutline"/>
         <feColorMatrix in="SourceGraphic" type="saturate" values="0" result="figureTone"/>
         <feComponentTransfer in="figureTone" result="lightFigure">
-          <feFuncR type="table" tableValues=".02 .10 .28 .58 .91"/>
-          <feFuncG type="table" tableValues=".24 .46 .65 .84 .96"/>
-          <feFuncB type="table" tableValues=".48 .74 .90 .98 1"/>
+          <feFuncR type="table" tableValues=".141 .239 .447 .714 .933"/>
+          <feFuncG type="table" tableValues=".282 .420 .588 .796 .953"/>
+          <feFuncB type="table" tableValues=".435 .620 .749 .894 .980"/>
           <feFuncA type="linear" slope="1.2" intercept="-.04"/>
         </feComponentTransfer>
         <feMerge><feMergeNode in="blueOutline"/><feMergeNode in="lightFigure"/></feMerge>
@@ -35,7 +35,7 @@ function EvolutionFigure({index}) {
   </svg>;
 }
 function EffortTrail({index}) {
-  const id = useId(), gradientId = `${id}-gradient`;
+  const id = useId(), gradientId = `${id}-gradient`, pixelGradientId = `${id}-pixel-gradient`;
   const trail = useRef(null);
   const [width, setWidth] = useState(0);
   const peak = index === CHAT_EFFORTS.length - 1;
@@ -57,19 +57,24 @@ function EffortTrail({index}) {
         <stop offset=".55" stopColor="var(--effort-pixel-blue)" stopOpacity=".17"/>
         <stop offset="1" stopColor="var(--effort-pixel-blue)" stopOpacity=".72"/>
       </linearGradient>
+      <linearGradient id={pixelGradientId} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2={width || 1} y2="0">
+        <stop stopColor="var(--effort-trail-start)" stopOpacity="0"/>
+        <stop offset=".1" stopColor="var(--effort-trail-start)" stopOpacity=".22"/>
+        <stop offset=".3" stopColor="var(--effort-trail-start)" stopOpacity=".55"/>
+        <stop offset=".6" stopColor="var(--effort-trail-middle)" stopOpacity=".88"/>
+        <stop offset="1" stopColor="var(--effort-trail-end)"/>
+      </linearGradient>
     </defs>
     {!peak&&<rect className="personal-effort-glow" width="100%" height="100%" fill={`url(#${gradientId})`}/>}
     {peak&&Array.from({length:columns*5},(_,i)=>{
       const row=Math.floor(i/columns),col=i%columns,seed=(i*37+row*13)%101;
       const progress=col/Math.max(1,columns-1);
-      const fade=Math.min(1,Math.pow(progress/.72,.55));
       const duration=.85+seed*.0065;
       const phase=((i*61+row*29)%103)/103;
-      return <g key={i} opacity={fade}>
-        <rect className="personal-effort-pixel" x={startX+col*6} y={2+row*6} width="4" height="4" rx=".4"
-          fill={seed%5===0?'var(--effort-pixel-bright)':seed%3===0?'var(--effort-pixel-deep)':'var(--effort-pixel-blue)'}
-          style={{'--pixel-duration':`${duration}s`,'--pixel-delay':`${-duration*phase}s`,'--pixel-rest':.7+seed/340}}/>
-      </g>;
+      // One gradient spans the whole trail; twinkling never erases its rightward build-up.
+      return <rect key={i} className="personal-effort-pixel" x={startX+col*6} y={2+row*6} width="4" height="4" rx=".4"
+        fill={`url(#${pixelGradientId})`}
+        style={{'--pixel-duration':`${duration}s`,'--pixel-delay':`${-duration*phase}s`,'--pixel-dim':.1+progress*.48,'--pixel-mid':.3+progress*.42,'--pixel-rest':.72+progress*.28}}/>;
     })}
   </svg>;
 }
