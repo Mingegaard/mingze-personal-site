@@ -23,8 +23,8 @@ function EvolutionFigure({index}) {
   </svg>;
 }
 function EffortTrail({index}) {
-  const id = useId(), gradientId = `${id}-gradient`, pixelsId = `${id}-pixels`, fadeId = `${id}-fade`, maskId = `${id}-mask`;
-  const intensity = [0,.12,.32,.64,1][index] ?? 0;
+  const id = useId(), gradientId = `${id}-gradient`, pixelsId = `${id}-pixels`, sparksId = `${id}-sparks`, fadeId = `${id}-fade`, maskId = `${id}-mask`;
+  const intensity = [0,.3,.5,.78,1][index] ?? 0;
   return <svg className="personal-effort-trail" width="100%" height="100%" aria-hidden="true" focusable="false">
     <defs>
       <linearGradient id={gradientId}>
@@ -39,11 +39,19 @@ function EffortTrail({index}) {
             fill={tone===0?'#fff':tone===1?'#aee5ff':tone===2?'#224e93':'#69b9ef'} opacity={tone===0?.9:.65}/>;
         }))}
       </pattern>
+      <pattern id={sparksId} width="72" height="24" patternUnits="userSpaceOnUse">
+        <rect x="7" y="7" width="4" height="4" rx=".6" fill="#e7f6ff"/>
+        <rect x="31" y="19" width="4" height="4" rx=".6" fill="#fff"/>
+        <rect x="55" y="1" width="4" height="4" rx=".6" fill="#b4e4ff"/>
+      </pattern>
       <linearGradient id={fadeId}><stop stopColor="#fff" stopOpacity=".1"/><stop offset="1" stopColor="#fff"/></linearGradient>
       <mask id={maskId}><rect width="100%" height="100%" fill={`url(#${fadeId})`}/></mask>
     </defs>
     <rect width="100%" height="100%" fill={`url(#${gradientId})`}/>
-    <rect width="100%" height="100%" fill={`url(#${pixelsId})`} mask={`url(#${maskId})`} opacity={intensity}/>
+    <g mask={`url(#${maskId})`} opacity={intensity}>
+      <rect className="personal-effort-flow" x="-24" height="100%" fill={`url(#${pixelsId})`}/>
+      <rect className="personal-effort-sparks" x="-72" height="100%" fill={`url(#${sparksId})`}/>
+    </g>
   </svg>;
 }
 export function ChatModelSelect({selection, onSelect, disabled, t}) {
@@ -115,7 +123,8 @@ export function ChatModelSelect({selection, onSelect, disabled, t}) {
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 6 4 4 4-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
     </button>
     <div id={effortId} ref={effortMenu} popover="auto" role="dialog" aria-label={t('chatEffort')}
-      className="personal-model-menu personal-effort-menu" tabIndex={-1} style={{...position,'--effort-ratio':effortIndex/(CHAT_EFFORTS.length-1)}}
+      className="personal-model-menu personal-effort-menu" data-effort={selection.reasoningEffort} tabIndex={-1}
+      style={{...position,'--effort-ratio':effortIndex/(CHAT_EFFORTS.length-1),'--effort-flow-duration':`${[4,4,3,2.4,1.8][effortIndex]}s`}}
       onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();close('effort');}}}>
       <div className="personal-effort-slider">
         <div className="personal-effort-track" aria-hidden="true"><div className="personal-effort-fill"><EffortTrail index={effortIndex}/></div></div>
