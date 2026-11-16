@@ -36,12 +36,12 @@ function EvolutionFigure({index}) {
   const [x,y,width,height] = evolutionFrames[index] ?? evolutionFrames[0];
   const unit = Math.max(width / 48, height / 52);
   const outline = unit * 1.2;
-  const pad = unit * 4;
-  return <svg className="personal-effort-figure" viewBox={`${x} ${y} ${width} ${height}`} aria-hidden="true" focusable="false">
+  const pad = unit * 6;
+  return <svg className="personal-effort-figure" viewBox={`0 0 ${width} ${height}`} aria-hidden="true" focusable="false">
     <defs>
-      <clipPath id={clipId}><rect x={x} y={y} width={width} height={height}/></clipPath>
-      <filter id={outlineId} filterUnits="userSpaceOnUse" x={x-pad} y={y-pad} width={width+pad*2} height={height+pad*2} colorInterpolationFilters="sRGB">
-        <feComponentTransfer in="SourceAlpha" result="outlineAlpha"><feFuncA type="discrete" tableValues="0 0 1 1"/></feComponentTransfer>
+      <clipPath id={clipId}><rect width={width} height={height}/></clipPath>
+      <filter id={outlineId} filterUnits="userSpaceOnUse" primitiveUnits="userSpaceOnUse" x={-pad} y={-pad} width={width+pad*2} height={height+pad*2} colorInterpolationFilters="sRGB">
+        <feComponentTransfer in="SourceAlpha" result="outlineAlpha"><feFuncA type="linear" slope="2" intercept="-.5"/></feComponentTransfer>
         <feMorphology in="outlineAlpha" operator="dilate" radius={unit} result="closedGaps"/>
         <feMorphology in="closedGaps" operator="erode" radius={unit} result="silhouette"/>
         <feMorphology in="silhouette" operator="dilate" radius={outline} result="expanded"/>
@@ -58,7 +58,12 @@ function EvolutionFigure({index}) {
         <feMerge><feMergeNode in="blueOutline"/><feMergeNode in="lightFigure"/></feMerge>
       </filter>
     </defs>
-    <g filter={`url(#${outlineId})`}><image href={evolutionSprite} width="2172" height="724" clipPath={`url(#${clipId})`}/></g>
+    {/* Scale the cropped artwork before the fixed-radius outline is generated. */}
+    <g filter={`url(#${outlineId})`}>
+      <g className="personal-effort-figure-motion">
+        <g clipPath={`url(#${clipId})`}><image href={evolutionSprite} x={-x} y={-y} width="2172" height="724"/></g>
+      </g>
+    </g>
   </svg>;
 }
 function EffortTrail() {
@@ -223,7 +228,7 @@ export function ChatModelSelect({selection, onSelect, disabled, t}) {
         <div className="personal-effort-ticks" aria-hidden="true">{CHAT_EFFORTS.map(level=><i key={level}/>)}</div>
         <div className="personal-effort-thumb" aria-hidden="true"><EffortAura/>
           {CHAT_EFFORTS.map((level,index)=><div key={level} className="personal-effort-pose" data-active={index===effortIndex} data-level={level}>
-            <div className="personal-effort-figure-bloom"><EvolutionFigure index={index}/></div>
+            <EvolutionFigure index={index}/>
           </div>)}
         </div>
         <input type="range" min="0" max={CHAT_EFFORTS.length-1} step="1" value={effortIndex} disabled={disabled}
