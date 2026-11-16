@@ -104,6 +104,8 @@ html[data-personal-ocean] [data-slot=sidebar] [class$='_moreAnchor'],html[data-p
 /* Optical pose offsets leave the native slider geometry stable while dragging. */
 .personal-effort-menu{--effort-track-bg:#eef0f2;--effort-track-border:#d9dde2;--effort-figure-outline:#193a63;--effort-pixel-blue:#477fb9;--effort-trail-start:#6884a8;--effort-trail-middle:#4a78ae;--effort-trail-end:#285e9e}
 body[data-ds-dark-theme] .personal-effort-menu{--effort-track-bg:#30343a;--effort-track-border:#41474f;--effort-pixel-blue:#6493cb;--effort-trail-start:#46648c;--effort-trail-middle:#729acf;--effort-trail-end:#c2d7f3}
+.personal-effort-menu{--effort-accent-cyan:#16bcc8;--effort-accent-yellow:#e9b938;--effort-accent-red:#e65b6b}
+body[data-ds-dark-theme] .personal-effort-menu{--effort-accent-cyan:#43d9e2;--effort-accent-yellow:#f3cf5a;--effort-accent-red:#f77f8b}
 .personal-effort-menu[data-effort=off]{--effort-figure-shift:-16px}
 .personal-effort-menu[data-effort=medium],.personal-effort-menu[data-effort=high]{--effort-figure-shift:-4px}
 .personal-effort-menu[data-effort=max]{--effort-figure-shift:4px}
@@ -118,6 +120,7 @@ body[data-ds-dark-theme] .personal-effort-menu{--effort-track-bg:#30343a;--effor
 .personal-effort-menu[data-effort=max] .personal-effort-pixel-layer{opacity:1;transition-delay:60ms}
 .personal-effort-glow{opacity:.9;animation:personal-effort-breathe 2s ease-in-out infinite paused}
 .personal-effort-pixel{opacity:var(--pixel-rest);animation:personal-effort-twinkle var(--pixel-duration) ease-in-out var(--pixel-delay) infinite paused}
+.personal-effort-accent{opacity:var(--accent-rest);animation:personal-effort-color-glint var(--accent-duration) ease-in-out var(--accent-delay) infinite paused}
 .personal-effort-aura{position:absolute;left:calc(-18px + var(--effort-figure-shift,0px));top:-16px;width:84px;height:84px;overflow:visible;color:#527cab;pointer-events:none;opacity:0;transition:opacity 240ms ease,left 220ms ease}
 .personal-effort-menu[data-effort=max] .personal-effort-aura{opacity:1}
 .personal-effort-pose{position:absolute;inset:0;opacity:0;transform:scale(.96);transition:opacity 180ms ease,transform 260ms ease}
@@ -128,11 +131,12 @@ body[data-ds-dark-theme] .personal-effort-menu{--effort-track-bg:#30343a;--effor
 .personal-effort-menu[data-bloom=true] .personal-effort-bloom-halo{animation:personal-effort-halo-open 800ms ease-out 100ms both}
 .personal-effort-menu[data-bloom=true] .personal-effort-burst-ray{animation:personal-effort-burst 700ms ease-out var(--burst-delay) both}
 .personal-effort-ray{opacity:0;transform-origin:0 0;animation:personal-effort-ray 1.6s ease-out var(--ray-delay) infinite paused}
-.personal-effort-menu:popover-open:not([data-effort=off]) .personal-effort-glow,.personal-effort-menu:popover-open[data-effort=max] :is(.personal-effort-pixel,.personal-effort-ray){animation-play-state:running}
+.personal-effort-menu:popover-open:not([data-effort=off]) .personal-effort-glow,.personal-effort-menu:popover-open[data-effort=max] :is(.personal-effort-pixel,.personal-effort-accent,.personal-effort-ray){animation-play-state:running}
 .personal-effort-menu[data-effort=off] .personal-effort-fill{width:0}
 .personal-effort-menu[data-effort=max] .personal-effort-fill{width:100%}
 @keyframes personal-effort-breathe{0%,100%{opacity:.65}50%{opacity:1}}
 @keyframes personal-effort-twinkle{0%,100%{opacity:var(--pixel-dim)}32%{opacity:1}62%{opacity:var(--pixel-dim)}80%{opacity:var(--pixel-mid)}}
+@keyframes personal-effort-color-glint{0%,30%,78%,100%{opacity:0}50%{opacity:var(--accent-peak)}}
 @keyframes personal-effort-ray{0%,8%{opacity:0;transform:translateX(-11px)}28%{opacity:.85}88%,100%{opacity:0;transform:translateX(4px)}}
 @keyframes personal-effort-figure-open{0%{transform:scale(.86)}48%{transform:scale(1.12)}100%{transform:scale(1)}}
 @keyframes personal-effort-halo-open{0%{opacity:0;transform:scale(.35)}35%{opacity:1;transform:scale(.95)}100%{opacity:0;transform:scale(1.18)}}
@@ -155,7 +159,7 @@ body[data-ds-dark-theme] .personal-effort-menu{--effort-track-bg:#30343a;--effor
 body[data-ds-dark-theme] .personal-effort-figure{filter:brightness(1.1)}
 body[data-ds-dark-theme] .personal-effort-menu .personal-effort-labels button[aria-pressed=true]{color:#8bcaff;background:#397fc426}
 body[data-ds-dark-theme] .personal-effort-aura{color:#aac7ed}
-@media(prefers-reduced-motion:reduce){.personal-effort-menu :is(.personal-effort-fill,.personal-effort-thumb,.personal-effort-figure,.personal-effort-pose,.personal-effort-aura,.personal-effort-gradient-layer,.personal-effort-pixel-layer){transition:none}.personal-effort-menu :is(.personal-effort-glow,.personal-effort-pixel,.personal-effort-ray,.personal-effort-figure-bloom,.personal-effort-bloom-halo,.personal-effort-burst-ray){animation:none!important}.personal-effort-ray,.personal-effort-bloom-halo,.personal-effort-burst-ray{opacity:0}}
+@media(prefers-reduced-motion:reduce){.personal-effort-menu :is(.personal-effort-fill,.personal-effort-thumb,.personal-effort-figure,.personal-effort-pose,.personal-effort-aura,.personal-effort-gradient-layer,.personal-effort-pixel-layer){transition:none}.personal-effort-menu :is(.personal-effort-glow,.personal-effort-pixel,.personal-effort-accent,.personal-effort-ray,.personal-effort-figure-bloom,.personal-effort-bloom-halo,.personal-effort-burst-ray){animation:none!important}.personal-effort-ray,.personal-effort-bloom-halo,.personal-effort-burst-ray{opacity:0}}
 
 /* Harness-style row actions: consistent icons, grouped actions, and danger area. */
 .personal-management-menu{position:fixed;inset:auto;margin:0;box-sizing:border-box;padding:6px;overflow-y:auto;border:1px solid var(--ocean-line);border-radius:14px;background:var(--dsw-alias-background-elevated,var(--ocean-paper));color:var(--dsw-alias-label-primary);box-shadow:0 8px 30px #0002;font:inherit;z-index:1100}

@@ -70,10 +70,16 @@ function EffortTrail() {
       const progress=col/Math.max(1,columns-1);
       const duration=.85+seed*.0065;
       const phase=((i*61+row*29)%103)/103;
+      const accentHash=(col*37+row*19)%97;
+      const accent=progress>.12&&accentHash<8;
+      const cell={x:startX+col*6,y:2+row*6,width:4,height:4,rx:.4};
       // One gradient spans the whole trail; twinkling never erases its rightward build-up.
-      return <rect key={i} className="personal-effort-pixel" x={startX+col*6} y={2+row*6} width="4" height="4" rx=".4"
-        fill={`url(#${pixelGradientId})`}
-        style={{'--pixel-duration':`${duration}s`,'--pixel-delay':`${-duration*phase}s`,'--pixel-dim':.1+progress*.48,'--pixel-mid':.3+progress*.42,'--pixel-rest':.72+progress*.28}}/>;
+      return <g key={i}>
+        <rect {...cell} className="personal-effort-pixel" fill={`url(#${pixelGradientId})`}
+          style={{'--pixel-duration':`${duration}s`,'--pixel-delay':`${-duration*phase}s`,'--pixel-dim':.1+progress*.48,'--pixel-mid':.3+progress*.42,'--pixel-rest':.72+progress*.28}}/>
+        {accent&&<rect {...cell} className="personal-effort-accent" fill={`var(--effort-accent-${['cyan','yellow','red'][accentHash%3]})`}
+          style={{'--accent-duration':`${2.2+seed*.012}s`,'--accent-delay':`${-phase*(2.2+seed*.012)}s`,'--accent-peak':.9*Math.min(1,progress/.7),'--accent-rest':.15*progress}}/>}
+      </g>;
     })}</g>
   </svg>;
 }
