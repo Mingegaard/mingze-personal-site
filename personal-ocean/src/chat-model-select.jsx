@@ -2,14 +2,48 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { CHAT_MODELS, CHAT_EFFORTS } from '../chat-options.mjs';
 import evolutionSprite from './assets/reasoning-evolution-ascii.png';
 
-// Individual viewports preserve every pose and prop in the generated ASCII sheet.
-const evolutionFrames = [[0,440],[440,380],[815,405],[1220,480],[1700,472]];
+// Tight frame bounds keep each pose readable inside the compact slider thumb.
+const evolutionFrames = [[55,367,340,308],[473,225,314,450],[859,116,316,558],[1262,69,420,606],[1729,55,388,620]];
 function EvolutionFigure({index}) {
-  const clipId = useId();
-  const [x,width] = evolutionFrames[index] ?? evolutionFrames[0];
-  return <svg className="personal-effort-figure" viewBox={`${x} 0 ${width} 724`} aria-hidden="true" focusable="false">
-    <defs><clipPath id={clipId}><rect x={x} width={width} height="724"/></clipPath></defs>
-    <image href={evolutionSprite} width="2172" height="724" clipPath={`url(#${clipId})`}/>
+  const id = useId(), clipId = `${id}-clip`, outlineId = `${id}-outline`;
+  const [x,y,width,height] = evolutionFrames[index] ?? evolutionFrames[0];
+  const outline = 2 * Math.max(width / 48, height / 52);
+  const pad = outline * 2;
+  return <svg className="personal-effort-figure" viewBox={`${x} ${y} ${width} ${height}`} aria-hidden="true" focusable="false">
+    <defs>
+      <clipPath id={clipId}><rect x={x} y={y} width={width} height={height}/></clipPath>
+      <filter id={outlineId} filterUnits="userSpaceOnUse" x={x-pad} y={y-pad} width={width+pad*2} height={height+pad*2} colorInterpolationFilters="sRGB">
+        <feMorphology in="SourceAlpha" operator="dilate" radius={outline} result="expanded"/>
+        <feFlood floodColor="#fff"/>
+        <feComposite in2="expanded" operator="in" result="whiteOutline"/>
+        <feMerge><feMergeNode in="whiteOutline"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <g filter={`url(#${outlineId})`}><image href={evolutionSprite} width="2172" height="724" clipPath={`url(#${clipId})`}/></g>
+  </svg>;
+}
+function EffortTrail({index}) {
+  const id = useId(), gradientId = `${id}-gradient`, pixelsId = `${id}-pixels`, fadeId = `${id}-fade`, maskId = `${id}-mask`;
+  const intensity = [0,.12,.32,.64,1][index] ?? 0;
+  return <svg className="personal-effort-trail" width="100%" height="100%" aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id={gradientId}>
+        <stop stopColor="#397fc4" stopOpacity=".16"/>
+        <stop offset=".65" stopColor="#397fc4" stopOpacity={.48+intensity*.4}/>
+        <stop offset="1" stopColor={index===4?'#80c7f6':'#58a6e4'} stopOpacity=".95"/>
+      </linearGradient>
+      <pattern id={pixelsId} width="24" height="24" patternUnits="userSpaceOnUse">
+        {[0,1,2,3].flatMap(row=>[0,1,2,3].map(col=>{
+          const tone = (row*7+col*3)%5;
+          return <rect key={`${row}-${col}`} x={col*6+1} y={row*6+1} width="4" height="4" rx=".6"
+            fill={tone===0?'#fff':tone===1?'#aee5ff':tone===2?'#224e93':'#69b9ef'} opacity={tone===0?.9:.65}/>;
+        }))}
+      </pattern>
+      <linearGradient id={fadeId}><stop stopColor="#fff" stopOpacity=".1"/><stop offset="1" stopColor="#fff"/></linearGradient>
+      <mask id={maskId}><rect width="100%" height="100%" fill={`url(#${fadeId})`}/></mask>
+    </defs>
+    <rect width="100%" height="100%" fill={`url(#${gradientId})`}/>
+    <rect width="100%" height="100%" fill={`url(#${pixelsId})`} mask={`url(#${maskId})`} opacity={intensity}/>
   </svg>;
 }
 export function ChatModelSelect({selection, onSelect, disabled, t}) {
@@ -83,11 +117,10 @@ export function ChatModelSelect({selection, onSelect, disabled, t}) {
     <div id={effortId} ref={effortMenu} popover="auto" role="dialog" aria-label={t('chatEffort')}
       className="personal-model-menu personal-effort-menu" tabIndex={-1} style={{...position,'--effort-ratio':effortIndex/(CHAT_EFFORTS.length-1)}}
       onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();close('effort');}}}>
-      <div className="personal-effort-evolution" aria-hidden="true"><div className="personal-effort-character"><EvolutionFigure key={effortIndex} index={effortIndex}/></div></div>
       <div className="personal-effort-slider">
-        <div className="personal-effort-track" aria-hidden="true"><div className="personal-effort-fill"/></div>
+        <div className="personal-effort-track" aria-hidden="true"><div className="personal-effort-fill"><EffortTrail index={effortIndex}/></div></div>
         <div className="personal-effort-ticks" aria-hidden="true">{CHAT_EFFORTS.map(level=><i key={level}/>)}</div>
-        <div className="personal-effort-thumb" aria-hidden="true"/>
+        <div className="personal-effort-thumb" aria-hidden="true"><EvolutionFigure index={effortIndex}/></div>
         <input type="range" min="0" max={CHAT_EFFORTS.length-1} step="1" value={effortIndex} disabled={disabled}
           aria-label={t('chatEffort')} aria-valuetext={effort}
           onChange={event=>onSelect({...selection,reasoningEffort:CHAT_EFFORTS[Number(event.target.value)]})}/>
