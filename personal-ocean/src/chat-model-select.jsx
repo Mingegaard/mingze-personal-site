@@ -8,13 +8,14 @@ function EvolutionFigure({index}) {
   const id = useId(), clipId = `${id}-clip`, outlineId = `${id}-outline`;
   const [x,y,width,height] = evolutionFrames[index] ?? evolutionFrames[0];
   const unit = Math.max(width / 48, height / 52);
-  const outline = unit;
+  const outline = unit * 1.2;
   const pad = unit * 4;
   return <svg className="personal-effort-figure" viewBox={`${x} ${y} ${width} ${height}`} aria-hidden="true" focusable="false">
     <defs>
       <clipPath id={clipId}><rect x={x} y={y} width={width} height={height}/></clipPath>
       <filter id={outlineId} filterUnits="userSpaceOnUse" x={x-pad} y={y-pad} width={width+pad*2} height={height+pad*2} colorInterpolationFilters="sRGB">
-        <feMorphology in="SourceAlpha" operator="dilate" radius={unit} result="closedGaps"/>
+        <feComponentTransfer in="SourceAlpha" result="outlineAlpha"><feFuncA type="discrete" tableValues="0 0 1 1"/></feComponentTransfer>
+        <feMorphology in="outlineAlpha" operator="dilate" radius={unit} result="closedGaps"/>
         <feMorphology in="closedGaps" operator="erode" radius={unit} result="silhouette"/>
         <feMorphology in="silhouette" operator="dilate" radius={outline} result="expanded"/>
         <feComposite in="expanded" in2="silhouette" operator="out" result="rim"/>
@@ -22,9 +23,10 @@ function EvolutionFigure({index}) {
         <feComposite in2="rim" operator="in" result="blueOutline"/>
         <feColorMatrix in="SourceGraphic" type="saturate" values="0" result="figureTone"/>
         <feComponentTransfer in="figureTone" result="lightFigure">
-          <feFuncR type="linear" slope=".65" intercept=".13"/>
-          <feFuncG type="linear" slope=".52" intercept=".40"/>
-          <feFuncB type="linear" slope=".35" intercept=".65"/>
+          <feFuncR type="table" tableValues=".02 .10 .28 .58 .91"/>
+          <feFuncG type="table" tableValues=".24 .46 .65 .84 .96"/>
+          <feFuncB type="table" tableValues=".48 .74 .90 .98 1"/>
+          <feFuncA type="linear" slope="1.2" intercept="-.04"/>
         </feComponentTransfer>
         <feMerge><feMergeNode in="blueOutline"/><feMergeNode in="lightFigure"/></feMerge>
       </filter>
@@ -60,11 +62,13 @@ function EffortTrail({index}) {
     {peak&&Array.from({length:columns*5},(_,i)=>{
       const row=Math.floor(i/columns),col=i%columns,seed=(i*37+row*13)%101;
       const progress=col/Math.max(1,columns-1);
-      const fade=Math.min(1,Math.pow(progress/.78,1.35));
+      const fade=Math.min(1,Math.pow(progress/.72,.55));
+      const duration=.85+seed*.0065;
+      const phase=((i*61+row*29)%103)/103;
       return <g key={i} opacity={fade}>
         <rect className="personal-effort-pixel" x={startX+col*6} y={2+row*6} width="4" height="4" rx=".4"
           fill={seed%5===0?'var(--effort-pixel-bright)':seed%3===0?'var(--effort-pixel-deep)':'var(--effort-pixel-blue)'}
-          style={{'--pixel-duration':`${2+seed/55}s`,'--pixel-delay':`${-seed/23}s`,'--pixel-rest':.7+seed/340}}/>
+          style={{'--pixel-duration':`${duration}s`,'--pixel-delay':`${-duration*phase}s`,'--pixel-rest':.7+seed/340}}/>
       </g>;
     })}
   </svg>;
@@ -73,7 +77,7 @@ function EffortAura() {
   return <svg className="personal-effort-aura" viewBox="-36 -36 72 72" aria-hidden="true" focusable="false">
     <g transform="scale(.62 1)">
     {Array.from({length:12},(_,i)=><g key={i} transform={`rotate(${i*30+8})`}>
-      <g className="personal-effort-ray" style={{'--ray-delay':`${-i*.19}s`}}>
+      <g className="personal-effort-ray" style={{'--ray-delay':`${-i*.13}s`}}>
         <path d="M 25 0 H 32" stroke="currentColor" strokeWidth=".8" strokeDasharray="1 2.5"/>
         {i%3===0&&<rect x="27" y="-1" width="2" height="2" rx=".3" fill="currentColor"/>}
       </g>
