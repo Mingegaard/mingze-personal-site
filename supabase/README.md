@@ -30,7 +30,7 @@
 
 ## AI 接口
 
-`POST personal-chat` 接收原聊天 `{messages,model,reasoningEffort}`，同时带 `X-Visitor-Token`。调用 DeepSeek 官方 `https://api.deepseek.com/chat/completions`，仅使用 `deepseek-flash`，UI 显示名由前端决定；最多 24 条、总计 50000 字符，仅 user/assistant 文本，服务端插入个人 Prompt。支持 off/low/medium/high/max 五档选择，默认 off，输出最多 1024 Token；显式启用其余四档时最多 4096 Token。根据 [DeepSeek 官方映射](https://api-docs.deepseek.com/guides/thinking_mode/)，medium 在服务端明确转为上游 high；两档实际推理强度相同，界面和保存的偏好仍保留用户选择。旧客户端的 `deepseek-v4-flash` 请求兼容为当前模型并强制关闭推理，避免缓存的高强度配置延续费用。
+`POST personal-chat` 接收原聊天 `{messages,model,reasoningEffort}`，同时带 `X-Visitor-Token`。调用 DeepSeek 官方 `https://api.deepseek.com/chat/completions`，仅使用 `deepseek-flash`，UI 显示名由前端决定；最多 24 条、总计 50000 字符，仅 user/assistant 文本，服务端插入个人 Prompt。界面继续保留 off/low/medium/high/max 五档选择及保存的偏好，服务端继续校验其合法性。为控制费用，所有有效档位的实际请求暂时统一为 `thinking: {type:"disabled"}`，不发送 `reasoning_effort`，输出上限固定为 1024 Token；客户端自行传入的上游推理或输出参数也不能覆盖此限制。本地聊天接口采用同一规则。旧客户端的 `deepseek-v4-flash` 请求仍兼容为当前模型。
 
 回复 `{content,usage?}`；`usage` 只包含供应商返回的非负安全整数计数：`prompt_tokens`、`completion_tokens`、`total_tokens`、`prompt_cache_hit_tokens`、`prompt_cache_miss_tokens`。110 秒上游超时返回 `timeout` (504)，网络不可达返回 `upstream-unreachable` (502)，不自动重试付费请求或透传供应商错误详情。
 

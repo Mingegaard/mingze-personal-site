@@ -64,6 +64,18 @@ for (const [locale, values] of Object.entries(modelCopy)) Object.assign(profileL
 const mediumEfforts = {zh:'中',en:'Medium',ja:'中',es:'Medio',fr:'Moyen',de:'Mittel',ru:'Средняя',pt:'Médio'};
 for (const [locale,label] of Object.entries(mediumEfforts)) profileLocales[locale].chatEffort_medium = label;
 
+const effortHelpCopy = {
+ zh:['推理强度说明','由于网站主人经济能力限制，无论选什么思考强度暂时都是关闭，可以点击此处给他捐款。'],
+ en:['About reasoning effort','Due to the site owner’s limited budget, thinking is temporarily off regardless of the selected effort. Click here to donate.'],
+ ja:['推論強度について','サイト主の予算に限りがあるため、どの推論強度を選んでも現在はオフになります。こちらから寄付できます。'],
+ es:['Acerca del razonamiento','Por el presupuesto limitado del dueño del sitio, el razonamiento está temporalmente desactivado en todos los niveles. Haz clic aquí para donar.'],
+ fr:['À propos du raisonnement','Le budget du propriétaire étant limité, le raisonnement reste temporairement désactivé quel que soit le niveau choisi. Cliquez ici pour faire un don.'],
+ de:['Hinweis zum Denkaufwand','Wegen des begrenzten Budgets des Website-Betreibers bleibt der Denkmodus vorerst bei jeder gewählten Stufe aus. Hier klicken, um zu spenden.'],
+ ru:['О глубине рассуждений','Из-за ограниченного бюджета владельца сайта режим рассуждений временно выключен при любом выбранном уровне. Нажмите здесь, чтобы сделать пожертвование.'],
+ pt:['Sobre o esforço de raciocínio','Devido ao orçamento limitado do dono do site, o raciocínio está temporariamente desativado em todos os níveis. Clique aqui para doar.'],
+};
+for (const [locale,[label,notice]] of Object.entries(effortHelpCopy)) Object.assign(profileLocales[locale],{chatEffortHelp:label,chatEffortNotice:notice});
+
 // Keep the five slider captions readable while retaining full accessible names.
 const compactEfforts = {es:{off:'Desact.'},fr:{off:'Désact.'},pt:{off:'Desat.'},ru:{max:'Макс.'}};
 for (const [locale,copy] of Object.entries(profileLocales)) for (const level of ['off','low','medium','high','max']) {

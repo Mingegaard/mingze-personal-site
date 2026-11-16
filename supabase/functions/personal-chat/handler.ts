@@ -22,9 +22,6 @@ export function createChatHandler({ env, rpc, profile, fetchImpl = fetch }: { en
       const input = await readJson(request, 80000);
       const requestedModel = input?.model ?? MODEL, requestedEffort = input?.reasoningEffort ?? 'off';
       if (![MODEL, LEGACY_MODEL].includes(requestedModel) || !efforts.includes(requestedEffort)) throw new ApiError(400, 'invalid-selection');
-      // Cached clients may retain a costly old selection. Migrate those requests to
-      // non-thinking mode; current clients can explicitly select reasoning again.
-      const effort = requestedModel === LEGACY_MODEL ? 'off' : requestedEffort;
       const messages = input?.messages;
       if (!Array.isArray(messages) || messages.length === 0 || messages.length > 24 || messages.at(-1)?.role !== 'user'
         || messages.some(message => !message || !['user', 'assistant'].includes(message.role)
@@ -32,7 +29,8 @@ export function createChatHandler({ env, rpc, profile, fetchImpl = fetch }: { en
         || messages.reduce((sum, message) => sum + message.content.length, 0) > 50000) throw new ApiError(400, 'invalid');
       const key = env('PERSONAL_DEEPSEEK_API_KEY');
       if (!key || !profile.trim()) throw new ApiError(503, 'unconfigured');
-      const maxTokens = effort === 'off' ? 1024 : 4096;
+      // Reasoning is temporarily disabled for all valid UI choices to contain costs.
+      const maxTokens = 1024;
       const upstreamMessages = [{ role: 'system', content: system }, ...messages.map(({ role, content }) => ({ role, content }))];
       // Conservative reservation covers UTF-8 input bytes plus output cap; never refunded
       // after an upstream attempt, even on timeout, so retries cannot evade daily limits.
@@ -49,9 +47,7 @@ export function createChatHandler({ env, rpc, profile, fetchImpl = fetch }: { en
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
         signal: upstreamSignal,
         body: JSON.stringify({ model: MODEL, stream: false, max_tokens: maxTokens,
-          thinking: { type: effort === 'off' ? 'disabled' : 'enabled' },
-          // DeepSeek's official medium alias maps to high; storage retains the original choice.
-          ...(effort === 'off' ? {} : { reasoning_effort: effort === 'medium' ? 'high' : effort }), messages: upstreamMessages }),
+          thinking: { type: 'disabled' }, messages: upstreamMessages }),
       });
       if (!upstream.ok) throw new ApiError(502, upstream.status === 402 ? 'balance' : 'upstream');
       const result = await upstream.json(), content = result?.choices?.[0]?.message?.content;

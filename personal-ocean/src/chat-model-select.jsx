@@ -2,6 +2,33 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { CHAT_MODELS, CHAT_EFFORTS } from '../chat-options.mjs';
 import evolutionSprite from './assets/reasoning-evolution-ascii.png';
 
+function EffortHelp({t, open}) {
+  const id = useId(), tooltip = useRef(null), trigger = useRef(null);
+  const [position, setPosition] = useState({});
+  const hide = () => tooltip.current?.hidePopover();
+  const show = () => {
+    const tip = tooltip.current, button = trigger.current;
+    if (!tip || !button) return;
+    const rect = button.getBoundingClientRect(), width = Math.min(280, window.innerWidth-32);
+    tip.showPopover();
+    setPosition({width,left:Math.max(16,Math.min(rect.right-width,window.innerWidth-width-16)),top:rect.bottom+6});
+    requestAnimationFrame(()=>{
+      const height = tip.getBoundingClientRect().height;
+      setPosition({width,left:Math.max(16,Math.min(rect.right-width,window.innerWidth-width-16)),
+        top:rect.top-height-8>=12?rect.top-height-8:Math.min(rect.bottom+6,window.innerHeight-height-12)});
+    });
+  };
+  useEffect(()=>{if(!open)hide();},[open]);
+  return <div className="personal-effort-help" onPointerEnter={show} onPointerLeave={()=>{if(document.activeElement!==trigger.current)hide();}}>
+    <button ref={trigger} type="button" className="personal-effort-help-button" aria-label={t('chatEffortHelp')} aria-describedby={id}
+      onFocus={show} onBlur={hide} onClick={show}
+      onKeyDown={event=>{if(event.key==='Escape'&&tooltip.current.matches(':popover-open')){event.preventDefault();event.stopPropagation();hide();}}}>
+      <svg width="17" height="17" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.4"/><path d="M7.9 7.5a2.15 2.15 0 0 1 4.2.6c0 1.5-2.1 1.6-2.1 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><circle cx="10" cy="13.9" r=".8" fill="currentColor"/></svg>
+    </button>
+    <div ref={tooltip} id={id} popover="manual" role="tooltip" className="personal-effort-help-tooltip" style={position}>{t('chatEffortNotice')}</div>
+  </div>;
+}
+
 // Tight frame bounds keep each pose readable inside the compact slider thumb.
 const evolutionFrames = [[55,367,340,308],[473,225,314,450],[859,116,316,558],[1262,69,420,606],[1729,55,388,620]];
 function EvolutionFigure({index}) {
@@ -186,6 +213,7 @@ export function ChatModelSelect({selection, onSelect, disabled, t}) {
       data-bloom={bloom&&open==='effort'&&selection.reasoningEffort==='max'||undefined} tabIndex={-1}
       style={{...position,'--effort-ratio':effortIndex/(CHAT_EFFORTS.length-1)}}
       onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();close('effort');}}}>
+      <EffortHelp t={t} open={open==='effort'}/>
       <div className="personal-effort-slider">
         <div className="personal-effort-track" aria-hidden="true"><div className="personal-effort-fill"><EffortTrail/></div></div>
         <div className="personal-effort-ticks" aria-hidden="true">{CHAT_EFFORTS.map(level=><i key={level}/>)}</div>

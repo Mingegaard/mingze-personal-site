@@ -100,7 +100,11 @@ html[data-personal-ocean] [data-slot=sidebar] [class$='_moreAnchor'],html[data-p
 .personal-effort-trigger svg{flex:none;color:var(--dsw-alias-label-caption)}
 .personal-effort-trigger:hover,.personal-effort-trigger[aria-expanded=true]{background:var(--dsw-alias-interactive-bg-hover);color:#397fc4}
 .personal-effort-trigger:disabled{opacity:.5;cursor:default}
-.personal-effort-menu{--effort-thumb-size:48px;--effort-thumb-lead:16px;--effort-thumb-height:52px;--effort-track-height:32px;--effort-x:calc(var(--effort-thumb-size)/2 + (100% - var(--effort-thumb-size))*var(--effort-ratio));overflow-x:hidden;padding:16px 20px 14px;border-radius:22px;box-shadow:0 14px 44px #162f4726}
+.personal-effort-menu{--effort-thumb-size:48px;--effort-thumb-lead:16px;--effort-thumb-height:52px;--effort-track-height:32px;--effort-x:calc(var(--effort-thumb-size)/2 + (100% - var(--effort-thumb-size))*var(--effort-ratio));overflow-x:hidden;padding:32px 20px 14px;border-radius:22px;box-shadow:0 14px 44px #162f4726}
+.personal-effort-help{position:absolute;top:7px;right:12px;z-index:3}
+.personal-effort-menu .personal-effort-help-button{display:grid;place-items:center;width:24px;height:24px;min-height:0;padding:0;border-radius:50%;color:var(--dsw-alias-label-secondary)}
+.personal-effort-menu .personal-effort-help-button:hover{color:#397fc4}
+.personal-effort-help-tooltip{position:fixed;inset:auto;margin:0;box-sizing:border-box;max-width:calc(100vw - 32px);padding:10px 12px;border:1px solid var(--ocean-line);border-radius:12px;background:var(--dsw-alias-background-elevated,var(--ocean-paper));color:var(--dsw-alias-label-secondary);box-shadow:0 6px 24px #0002;font-family:inherit;font-size:12px;line-height:1.65;text-align:left;overflow-wrap:anywhere;pointer-events:none}
 /* Optical pose offsets leave the native slider geometry stable while dragging. */
 .personal-effort-menu{--effort-track-bg:#eef0f2;--effort-track-border:#d9dde2;--effort-figure-outline:#193a63;--effort-pixel-blue:#477fb9;--effort-trail-start:#6884a8;--effort-trail-middle:#4a78ae;--effort-trail-end:#285e9e}
 body[data-ds-dark-theme] .personal-effort-menu{--effort-track-bg:#30343a;--effort-track-border:#41474f;--effort-pixel-blue:#6493cb;--effort-trail-start:#46648c;--effort-trail-middle:#729acf;--effort-trail-end:#c2d7f3}

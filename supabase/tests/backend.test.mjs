@@ -104,30 +104,21 @@ test('chat reserves budget before its single upstream call and preserves the ful
   assert.equal(payload.tools, undefined);
 });
 
-test('chat migrates legacy cached selections to economical non-thinking mode and bounds explicit reasoning', async () => {
-  for (const [model, requestedEffort, effectiveEffort, cap] of [
-    ['deepseek-v4-flash', 'off', 'off', 1024],
-    ['deepseek-v4-flash', 'low', 'off', 1024],
-    ['deepseek-v4-flash', 'medium', 'off', 1024],
-    ['deepseek-v4-flash', 'max', 'off', 1024],
-    ['deepseek-v4-flash', 'high', 'off', 1024],
-    ['deepseek-flash', 'off', 'off', 1024],
-    ['deepseek-flash', 'low', 'low', 4096],
-    ['deepseek-flash', 'medium', 'high', 4096],
-    ['deepseek-flash', 'high', 'high', 4096],
-    ['deepseek-flash', 'max', 'max', 4096],
-  ]) {
-    let payload, reserved;
-    const handler = createChatHandler({ env, profile: 'profile',
-      rpc: async (name, params) => { if (name === 'site_reserve_ai_request') { reserved = params.p_reserved_tokens; return id(1); } },
-      fetchImpl: async (_, options) => { payload = JSON.parse(options.body); return Response.json({ choices: [{ message: { content: '好' } }] }); },
-    });
-    assert.equal((await handler(req({ model, reasoningEffort: requestedEffort, messages: [{ role: 'user', content: 'hello' }] }))).status, 200);
-    assert.equal(payload.model, 'deepseek-flash');
-    assert.equal(payload.max_tokens, cap);
-    assert.deepEqual(payload.thinking, { type: effectiveEffort === 'off' ? 'disabled' : 'enabled' });
-    assert.equal(payload.reasoning_effort, effectiveEffort === 'off' ? undefined : effectiveEffort);
-    assert.equal(reserved, new TextEncoder().encode(JSON.stringify(payload.messages)).length + cap + 1024);
+test('chat enforces non-thinking mode and a fixed output budget for all current and legacy UI selections', async () => {
+  for (const model of ['deepseek-v4-flash', 'deepseek-flash']) {
+    for (const requestedEffort of ['off', 'low', 'medium', 'high', 'max']) {
+      let payload, reserved;
+      const handler = createChatHandler({ env, profile: 'profile',
+        rpc: async (name, params) => { if (name === 'site_reserve_ai_request') { reserved = params.p_reserved_tokens; return id(1); } },
+        fetchImpl: async (_, options) => { payload = JSON.parse(options.body); return Response.json({ choices: [{ message: { content: '好' } }] }); },
+      });
+      assert.equal((await handler(req({ model, reasoningEffort: requestedEffort, thinking: { type: 'enabled' }, reasoning_effort: 'max', max_tokens: 100000, messages: [{ role: 'user', content: 'hello' }] }))).status, 200);
+      assert.equal(payload.model, 'deepseek-flash');
+      assert.equal(payload.max_tokens, 1024);
+      assert.deepEqual(payload.thinking, { type: 'disabled' });
+      assert.equal(payload.reasoning_effort, undefined);
+      assert.equal(reserved, new TextEncoder().encode(JSON.stringify(payload.messages)).length + 1024 + 1024);
+    }
   }
 });
 
