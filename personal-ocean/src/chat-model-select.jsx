@@ -14,9 +14,14 @@ function EvolutionFigure({index}) {
       <clipPath id={clipId}><rect x={x} y={y} width={width} height={height}/></clipPath>
       <filter id={outlineId} filterUnits="userSpaceOnUse" x={x-pad} y={y-pad} width={width+pad*2} height={height+pad*2} colorInterpolationFilters="sRGB">
         <feMorphology in="SourceAlpha" operator="dilate" radius={outline} result="expanded"/>
-        <feFlood floodColor="#173f70"/>
+        <feFlood floodColor="#5287bc"/>
         <feComposite in2="expanded" operator="in" result="blueOutline"/>
-        <feMerge><feMergeNode in="blueOutline"/><feMergeNode in="SourceGraphic"/></feMerge>
+        <feComponentTransfer in="SourceGraphic" result="lightFigure">
+          <feFuncR type="linear" slope=".68" intercept=".23"/>
+          <feFuncG type="linear" slope=".68" intercept=".32"/>
+          <feFuncB type="linear" slope=".68" intercept=".40"/>
+        </feComponentTransfer>
+        <feMerge><feMergeNode in="blueOutline"/><feMergeNode in="lightFigure"/></feMerge>
       </filter>
     </defs>
     <g filter={`url(#${outlineId})`}><image href={evolutionSprite} width="2172" height="724" clipPath={`url(#${clipId})`}/></g>

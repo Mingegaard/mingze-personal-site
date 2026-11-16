@@ -133,7 +133,7 @@ html[data-personal-ocean] [data-slot=sidebar] [class$='_moreAnchor'],html[data-p
 .personal-effort-labels{position:relative;height:30px;margin-top:4px}
 .personal-effort-menu .personal-effort-labels button{position:absolute;left:calc(var(--effort-thumb-size)/2 + (100% - var(--effort-thumb-size))*var(--level-ratio));transform:translateX(-50%);display:block;width:max-content;min-height:28px;padding:4px 5px;font-size:11px;line-height:20px;text-align:center;white-space:nowrap;color:var(--dsw-alias-label-secondary)}
 .personal-effort-menu .personal-effort-labels button[aria-pressed=true]{color:#397fc4;background:#397fc415}
-body[data-ds-dark-theme] .personal-effort-figure{filter:brightness(1.35)}
+body[data-ds-dark-theme] .personal-effort-figure{filter:brightness(1.1)}
 body[data-ds-dark-theme] .personal-effort-menu .personal-effort-labels button[aria-pressed=true]{color:#8bcaff;background:#397fc426}
 
 /* Harness-style row actions: consistent icons, grouped actions, and danger area. */
