@@ -107,23 +107,38 @@ body[data-ds-dark-theme] .personal-effort-menu{--effort-track-bg:#30343a;--effor
 .personal-effort-menu[data-effort=off]{--effort-figure-shift:-16px}
 .personal-effort-menu[data-effort=medium],.personal-effort-menu[data-effort=high]{--effort-figure-shift:-4px}
 .personal-effort-menu[data-effort=max]{--effort-figure-shift:4px}
-.personal-effort-figure{display:block;width:100%;height:100%;overflow:visible;transform:translateX(var(--effort-figure-shift,0px))}
+.personal-effort-figure{display:block;width:100%;height:100%;overflow:visible;transform:translateX(var(--effort-figure-shift,0px));transition:transform 220ms ease}
 .personal-effort-slider{position:relative;height:var(--effort-thumb-height);isolation:isolate}
 .personal-effort-track{position:absolute;inset:calc((var(--effort-thumb-height) - var(--effort-track-height))/2) 0;overflow:hidden;border-radius:999px;background:var(--effort-track-bg);box-shadow:inset 0 0 0 1px var(--effort-track-border);pointer-events:none}
-.personal-effort-fill{height:100%;width:var(--effort-x);overflow:hidden;border-radius:999px}
+.personal-effort-fill{height:100%;width:var(--effort-x);overflow:hidden;border-radius:999px;transition:width 280ms cubic-bezier(.2,.8,.2,1)}
 .personal-effort-trail{display:block}
+.personal-effort-gradient-layer{opacity:1;transition:opacity 280ms ease}
+.personal-effort-pixel-layer{opacity:0;transition:opacity 300ms ease}
+.personal-effort-menu[data-effort=max] .personal-effort-gradient-layer{opacity:0}
+.personal-effort-menu[data-effort=max] .personal-effort-pixel-layer{opacity:1;transition-delay:60ms}
 .personal-effort-glow{opacity:.9;animation:personal-effort-breathe 2s ease-in-out infinite paused}
 .personal-effort-pixel{opacity:var(--pixel-rest);animation:personal-effort-twinkle var(--pixel-duration) ease-in-out var(--pixel-delay) infinite paused}
-.personal-effort-aura{position:absolute;left:calc(-12px + var(--effort-figure-shift,0px));top:-10px;width:72px;height:72px;overflow:visible;color:#64afe8;pointer-events:none}
+.personal-effort-aura{position:absolute;left:calc(-18px + var(--effort-figure-shift,0px));top:-16px;width:84px;height:84px;overflow:visible;color:#527cab;pointer-events:none;opacity:0;transition:opacity 240ms ease,left 220ms ease}
+.personal-effort-menu[data-effort=max] .personal-effort-aura{opacity:1}
+.personal-effort-pose{position:absolute;inset:0;opacity:0;transform:scale(.96);transition:opacity 180ms ease,transform 260ms ease}
+.personal-effort-pose[data-active=true]{opacity:1;transform:scale(1)}
+.personal-effort-figure-bloom{width:100%;height:100%;transform-origin:center}
+.personal-effort-bloom-halo,.personal-effort-burst-ray{opacity:0;transform-origin:0 0}
+.personal-effort-menu[data-bloom=true] .personal-effort-pose[data-level=max] .personal-effort-figure-bloom{animation:personal-effort-figure-open 550ms cubic-bezier(.2,.8,.2,1) 100ms both}
+.personal-effort-menu[data-bloom=true] .personal-effort-bloom-halo{animation:personal-effort-halo-open 800ms ease-out 100ms both}
+.personal-effort-menu[data-bloom=true] .personal-effort-burst-ray{animation:personal-effort-burst 700ms ease-out var(--burst-delay) both}
 .personal-effort-ray{opacity:0;transform-origin:0 0;animation:personal-effort-ray 1.6s ease-out var(--ray-delay) infinite paused}
 .personal-effort-menu:popover-open:not([data-effort=off]) .personal-effort-glow,.personal-effort-menu:popover-open[data-effort=max] :is(.personal-effort-pixel,.personal-effort-ray){animation-play-state:running}
 .personal-effort-menu[data-effort=off] .personal-effort-fill{width:0}
 .personal-effort-menu[data-effort=max] .personal-effort-fill{width:100%}
 @keyframes personal-effort-breathe{0%,100%{opacity:.65}50%{opacity:1}}
 @keyframes personal-effort-twinkle{0%,100%{opacity:var(--pixel-dim)}32%{opacity:1}62%{opacity:var(--pixel-dim)}80%{opacity:var(--pixel-mid)}}
-@keyframes personal-effort-ray{0%,12%{opacity:0;transform:scale(.75)}28%{opacity:.78}85%,100%{opacity:0;transform:scale(1.12)}}
-@media(prefers-reduced-motion:reduce){.personal-effort-glow,.personal-effort-pixel,.personal-effort-ray{animation:none}.personal-effort-ray{opacity:0}}
-.personal-effort-thumb{position:absolute;left:calc(var(--effort-x) + var(--effort-thumb-lead));top:0;transform:translateX(-50%);width:var(--effort-thumb-size);height:var(--effort-thumb-height);pointer-events:none;z-index:1}
+@keyframes personal-effort-ray{0%,8%{opacity:0;transform:translateX(-11px)}28%{opacity:.85}88%,100%{opacity:0;transform:translateX(4px)}}
+@keyframes personal-effort-figure-open{0%{transform:scale(.86)}48%{transform:scale(1.12)}100%{transform:scale(1)}}
+@keyframes personal-effort-halo-open{0%{opacity:0;transform:scale(.35)}35%{opacity:1;transform:scale(.95)}100%{opacity:0;transform:scale(1.18)}}
+@keyframes personal-effort-burst{0%{opacity:0;transform:translateX(-12px)}22%{opacity:1}100%{opacity:0;transform:translateX(4px)}}
+.personal-effort-thumb{position:absolute;left:calc(var(--effort-x) + var(--effort-thumb-lead));top:0;transform:translateX(-50%);width:var(--effort-thumb-size);height:var(--effort-thumb-height);pointer-events:none;z-index:1;transition:left 280ms cubic-bezier(.2,.8,.2,1)}
+.personal-effort-menu[data-dragging=true] :is(.personal-effort-thumb,.personal-effort-fill){transition:none}
 /* Left padding shifts the native thumb with the figure while retaining the full track click area. */
 .personal-model-menu .personal-effort-slider input{appearance:none;-webkit-appearance:none;position:absolute;inset:0 auto 0 0;display:block;box-sizing:border-box;width:calc(100% + var(--effort-thumb-lead));height:100%;margin:0;padding:0 0 0 var(--effort-thumb-lead);border:0;border-radius:999px;opacity:0;background:transparent;cursor:pointer;z-index:2}
 .personal-effort-slider input::-webkit-slider-runnable-track{height:var(--effort-thumb-height);border:0;background:transparent}
@@ -139,6 +154,8 @@ body[data-ds-dark-theme] .personal-effort-menu{--effort-track-bg:#30343a;--effor
 .personal-effort-menu .personal-effort-labels button[aria-pressed=true]{color:#397fc4;background:#397fc415}
 body[data-ds-dark-theme] .personal-effort-figure{filter:brightness(1.1)}
 body[data-ds-dark-theme] .personal-effort-menu .personal-effort-labels button[aria-pressed=true]{color:#8bcaff;background:#397fc426}
+body[data-ds-dark-theme] .personal-effort-aura{color:#aac7ed}
+@media(prefers-reduced-motion:reduce){.personal-effort-menu :is(.personal-effort-fill,.personal-effort-thumb,.personal-effort-figure,.personal-effort-pose,.personal-effort-aura,.personal-effort-gradient-layer,.personal-effort-pixel-layer){transition:none}.personal-effort-menu :is(.personal-effort-glow,.personal-effort-pixel,.personal-effort-ray,.personal-effort-figure-bloom,.personal-effort-bloom-halo,.personal-effort-burst-ray){animation:none!important}.personal-effort-ray,.personal-effort-bloom-halo,.personal-effort-burst-ray{opacity:0}}
 
 /* Harness-style row actions: consistent icons, grouped actions, and danger area. */
 .personal-management-menu{position:fixed;inset:auto;margin:0;box-sizing:border-box;padding:6px;overflow-y:auto;border:1px solid var(--ocean-line);border-radius:14px;background:var(--dsw-alias-background-elevated,var(--ocean-paper));color:var(--dsw-alias-label-primary);box-shadow:0 8px 30px #0002;font:inherit;z-index:1100}
