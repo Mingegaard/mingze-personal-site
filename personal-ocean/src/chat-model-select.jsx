@@ -7,19 +7,23 @@ const evolutionFrames = [[55,367,340,308],[473,225,314,450],[859,116,316,558],[1
 function EvolutionFigure({index}) {
   const id = useId(), clipId = `${id}-clip`, outlineId = `${id}-outline`;
   const [x,y,width,height] = evolutionFrames[index] ?? evolutionFrames[0];
-  const outline = 2 * Math.max(width / 48, height / 52);
-  const pad = outline * 2;
+  const unit = Math.max(width / 48, height / 52);
+  const outline = unit;
+  const pad = unit * 4;
   return <svg className="personal-effort-figure" viewBox={`${x} ${y} ${width} ${height}`} aria-hidden="true" focusable="false">
     <defs>
       <clipPath id={clipId}><rect x={x} y={y} width={width} height={height}/></clipPath>
       <filter id={outlineId} filterUnits="userSpaceOnUse" x={x-pad} y={y-pad} width={width+pad*2} height={height+pad*2} colorInterpolationFilters="sRGB">
-        <feMorphology in="SourceAlpha" operator="dilate" radius={outline} result="expanded"/>
-        <feFlood floodColor="#5287bc"/>
-        <feComposite in2="expanded" operator="in" result="blueOutline"/>
+        <feMorphology in="SourceAlpha" operator="dilate" radius={unit} result="closedGaps"/>
+        <feMorphology in="closedGaps" operator="erode" radius={unit} result="silhouette"/>
+        <feMorphology in="silhouette" operator="dilate" radius={outline} result="expanded"/>
+        <feComposite in="expanded" in2="silhouette" operator="out" result="rim"/>
+        <feFlood floodColor="#315b89"/>
+        <feComposite in2="rim" operator="in" result="blueOutline"/>
         <feComponentTransfer in="SourceGraphic" result="lightFigure">
-          <feFuncR type="linear" slope=".68" intercept=".23"/>
-          <feFuncG type="linear" slope=".68" intercept=".32"/>
-          <feFuncB type="linear" slope=".68" intercept=".40"/>
+          <feFuncR type="linear" slope=".42" intercept=".34"/>
+          <feFuncG type="linear" slope=".42" intercept=".52"/>
+          <feFuncB type="linear" slope=".42" intercept=".70"/>
         </feComponentTransfer>
         <feMerge><feMergeNode in="blueOutline"/><feMergeNode in="lightFigure"/></feMerge>
       </filter>
@@ -28,34 +32,40 @@ function EvolutionFigure({index}) {
   </svg>;
 }
 function EffortTrail({index}) {
-  const id = useId(), gradientId = `${id}-gradient`, pixelsId = `${id}-pixels`, sparksId = `${id}-sparks`, fadeId = `${id}-fade`, maskId = `${id}-mask`;
-  const intensity = [0,.3,.5,.78,1][index] ?? 0;
+  const id = useId(), gradientId = `${id}-gradient`, pixelsId = `${id}-pixels`, fadeId = `${id}-fade`, maskId = `${id}-mask`;
+  const peak = index === CHAT_EFFORTS.length - 1;
   return <svg className="personal-effort-trail" width="100%" height="100%" aria-hidden="true" focusable="false">
     <defs>
       <linearGradient id={gradientId}>
-        <stop stopColor="#397fc4" stopOpacity=".16"/>
-        <stop offset=".65" stopColor="#397fc4" stopOpacity={.48+intensity*.4}/>
-        <stop offset="1" stopColor={index===4?'#80c7f6':'#58a6e4'} stopOpacity=".95"/>
+        <stop stopColor="#397fc4" stopOpacity="0"/>
+        <stop offset=".2" stopColor="#397fc4" stopOpacity=".01"/>
+        <stop offset=".55" stopColor="#397fc4" stopOpacity={peak?.3:.17}/>
+        <stop offset="1" stopColor={peak?'#397fd1':'#63ace0'} stopOpacity={peak?.82:.72}/>
       </linearGradient>
-      <pattern id={pixelsId} width="24" height="24" patternUnits="userSpaceOnUse">
-        {[0,1,2,3].flatMap(row=>[0,1,2,3].map(col=>{
-          const tone = (row*7+col*3)%5;
-          return <rect key={`${row}-${col}`} x={col*6+1} y={row*6+1} width="4" height="4" rx=".6"
-            fill={tone===0?'#fff':tone===1?'#aee5ff':tone===2?'#224e93':'#69b9ef'} opacity={tone===0?.9:.65}/>;
-        }))}
+      <pattern id={pixelsId} width="96" height="30" patternUnits="userSpaceOnUse">
+        {Array.from({length:80},(_,i)=>{
+          const row=Math.floor(i/16),col=i%16,seed=(i*37+row*13)%101;
+          return <rect key={i} className="personal-effort-pixel" x={col*6+1} y={row*6+1} width="4" height="4" rx=".7"
+            fill={seed%5===0?'#effaff':seed%3===0?'#abdfff':'#6eb9f1'}
+            style={{'--pixel-duration':`${2+seed/55}s`,'--pixel-delay':`${-seed/23}s`,'--pixel-rest':.25+seed/180}}/>;
+        })}
       </pattern>
-      <pattern id={sparksId} width="72" height="24" patternUnits="userSpaceOnUse">
-        <rect x="7" y="7" width="4" height="4" rx=".6" fill="#e7f6ff"/>
-        <rect x="31" y="19" width="4" height="4" rx=".6" fill="#fff"/>
-        <rect x="55" y="1" width="4" height="4" rx=".6" fill="#b4e4ff"/>
-      </pattern>
-      <linearGradient id={fadeId}><stop stopColor="#fff" stopOpacity=".1"/><stop offset="1" stopColor="#fff"/></linearGradient>
+      <linearGradient id={fadeId}><stop stopColor="#fff" stopOpacity="0"/><stop offset=".25" stopColor="#fff" stopOpacity=".03"/><stop offset=".6" stopColor="#fff" stopOpacity=".4"/><stop offset="1" stopColor="#fff"/></linearGradient>
       <mask id={maskId}><rect width="100%" height="100%" fill={`url(#${fadeId})`}/></mask>
     </defs>
-    <rect width="100%" height="100%" fill={`url(#${gradientId})`}/>
-    <g mask={`url(#${maskId})`} opacity={intensity}>
-      <rect className="personal-effort-flow" x="-24" height="100%" fill={`url(#${pixelsId})`}/>
-      <rect className="personal-effort-sparks" x="-72" height="100%" fill={`url(#${sparksId})`}/>
+    <rect className="personal-effort-glow" width="100%" height="100%" fill={`url(#${gradientId})`}/>
+    {peak&&<rect width="100%" height="100%" fill={`url(#${pixelsId})`} mask={`url(#${maskId})`}/>}
+  </svg>;
+}
+function EffortAura() {
+  return <svg className="personal-effort-aura" viewBox="-36 -36 72 72" aria-hidden="true" focusable="false">
+    <g transform="scale(.62 1)">
+    {Array.from({length:12},(_,i)=><g key={i} transform={`rotate(${i*30+8})`}>
+      <g className="personal-effort-ray" style={{'--ray-delay':`${-i*.19}s`}}>
+        <path d="M 25 0 H 32" stroke="currentColor" strokeWidth=".8" strokeDasharray="1 2.5"/>
+        {i%3===0&&<rect x="27" y="-1" width="2" height="2" rx=".3" fill="currentColor"/>}
+      </g>
+    </g>)}
     </g>
   </svg>;
 }
@@ -129,12 +139,12 @@ export function ChatModelSelect({selection, onSelect, disabled, t}) {
     </button>
     <div id={effortId} ref={effortMenu} popover="auto" role="dialog" aria-label={t('chatEffort')}
       className="personal-model-menu personal-effort-menu" data-effort={selection.reasoningEffort} tabIndex={-1}
-      style={{...position,'--effort-ratio':effortIndex/(CHAT_EFFORTS.length-1),'--effort-flow-duration':`${[4,4,3,2.4,1.8][effortIndex]}s`}}
+      style={{...position,'--effort-ratio':effortIndex/(CHAT_EFFORTS.length-1)}}
       onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();close('effort');}}}>
       <div className="personal-effort-slider">
         <div className="personal-effort-track" aria-hidden="true"><div className="personal-effort-fill"><EffortTrail index={effortIndex}/></div></div>
         <div className="personal-effort-ticks" aria-hidden="true">{CHAT_EFFORTS.map(level=><i key={level}/>)}</div>
-        <div className="personal-effort-thumb" aria-hidden="true"><EvolutionFigure index={effortIndex}/></div>
+        <div className="personal-effort-thumb" aria-hidden="true">{selection.reasoningEffort==='max'&&<EffortAura/>}<EvolutionFigure index={effortIndex}/></div>
         <input type="range" min="0" max={CHAT_EFFORTS.length-1} step="1" value={effortIndex} disabled={disabled}
           aria-label={t('chatEffort')} aria-valuetext={effort}
           onChange={event=>onSelect({...selection,reasoningEffort:CHAT_EFFORTS[Number(event.target.value)]})}/>
