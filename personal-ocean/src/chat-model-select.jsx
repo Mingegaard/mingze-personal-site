@@ -18,12 +18,13 @@ function EvolutionFigure({index}) {
         <feMorphology in="closedGaps" operator="erode" radius={unit} result="silhouette"/>
         <feMorphology in="silhouette" operator="dilate" radius={outline} result="expanded"/>
         <feComposite in="expanded" in2="silhouette" operator="out" result="rim"/>
-        <feFlood floodColor="#234d78"/>
+        <feFlood floodColor="var(--effort-figure-outline)"/>
         <feComposite in2="rim" operator="in" result="blueOutline"/>
-        <feComponentTransfer in="SourceGraphic" result="lightFigure">
-          <feFuncR type="linear" slope=".85" intercept=".10"/>
-          <feFuncG type="linear" slope=".75" intercept=".24"/>
-          <feFuncB type="linear" slope=".65" intercept=".34"/>
+        <feColorMatrix in="SourceGraphic" type="saturate" values="0" result="figureTone"/>
+        <feComponentTransfer in="figureTone" result="lightFigure">
+          <feFuncR type="linear" slope=".65" intercept=".13"/>
+          <feFuncG type="linear" slope=".52" intercept=".40"/>
+          <feFuncB type="linear" slope=".35" intercept=".65"/>
         </feComponentTransfer>
         <feMerge><feMergeNode in="blueOutline"/><feMergeNode in="lightFigure"/></feMerge>
       </filter>
@@ -32,29 +33,40 @@ function EvolutionFigure({index}) {
   </svg>;
 }
 function EffortTrail({index}) {
-  const id = useId(), gradientId = `${id}-gradient`, pixelsId = `${id}-pixels`, fadeId = `${id}-fade`, maskId = `${id}-mask`;
+  const id = useId(), gradientId = `${id}-gradient`;
+  const trail = useRef(null);
+  const [width, setWidth] = useState(0);
   const peak = index === CHAT_EFFORTS.length - 1;
-  return <svg className="personal-effort-trail" width="100%" height="100%" aria-hidden="true" focusable="false">
+  useEffect(()=>{
+    if (!peak) return;
+    const observer = new ResizeObserver(([entry])=>setWidth(entry.contentRect.width));
+    observer.observe(trail.current);
+    return ()=>observer.disconnect();
+  },[peak]);
+  // Fit complete cells inside both rounded caps; never repeat a cropped edge row.
+  const columns = Math.max(0, Math.floor((width-24+2)/6));
+  const gridWidth = columns ? columns*6-2 : 0;
+  const startX = Math.round((width-gridWidth)/2);
+  return <svg ref={trail} className="personal-effort-trail" width="100%" height="100%" aria-hidden="true" focusable="false">
     <defs>
       <linearGradient id={gradientId}>
-        <stop stopColor="#397fc4" stopOpacity="0"/>
-        <stop offset=".2" stopColor="#397fc4" stopOpacity=".01"/>
-        <stop offset=".55" stopColor="#397fc4" stopOpacity={peak?.3:.17}/>
-        <stop offset="1" stopColor={peak?'#397fd1':'#63ace0'} stopOpacity={peak?.82:.72}/>
+        <stop stopColor="var(--effort-pixel-blue)" stopOpacity="0"/>
+        <stop offset=".2" stopColor="var(--effort-pixel-blue)" stopOpacity=".01"/>
+        <stop offset=".55" stopColor="var(--effort-pixel-blue)" stopOpacity=".17"/>
+        <stop offset="1" stopColor="var(--effort-pixel-blue)" stopOpacity=".72"/>
       </linearGradient>
-      <pattern id={pixelsId} width="96" height="30" patternUnits="userSpaceOnUse">
-        {Array.from({length:80},(_,i)=>{
-          const row=Math.floor(i/16),col=i%16,seed=(i*37+row*13)%101;
-          return <rect key={i} className="personal-effort-pixel" x={col*6+1} y={row*6+1} width="4" height="4" rx=".35"
-            fill={seed%5===0?'var(--effort-pixel-bright)':seed%3===0?'var(--effort-pixel-deep)':'var(--effort-pixel-blue)'}
-            style={{'--pixel-duration':`${2+seed/55}s`,'--pixel-delay':`${-seed/23}s`,'--pixel-rest':.7+seed/340}}/>;
-        })}
-      </pattern>
-      <linearGradient id={fadeId}><stop stopColor="#fff" stopOpacity="0"/><stop offset=".2" stopColor="#fff" stopOpacity=".28"/><stop offset=".45" stopColor="#fff" stopOpacity=".74"/><stop offset=".7" stopColor="#fff"/><stop offset="1" stopColor="#fff"/></linearGradient>
-      <mask id={maskId}><rect width="100%" height="100%" fill={`url(#${fadeId})`}/></mask>
     </defs>
     {!peak&&<rect className="personal-effort-glow" width="100%" height="100%" fill={`url(#${gradientId})`}/>}
-    {peak&&<rect width="100%" height="100%" fill={`url(#${pixelsId})`} mask={`url(#${maskId})`}/>}
+    {peak&&Array.from({length:columns*5},(_,i)=>{
+      const row=Math.floor(i/columns),col=i%columns,seed=(i*37+row*13)%101;
+      const progress=col/Math.max(1,columns-1);
+      const fade=Math.min(1,Math.pow(progress/.78,1.35));
+      return <g key={i} opacity={fade}>
+        <rect className="personal-effort-pixel" x={startX+col*6} y={2+row*6} width="4" height="4" rx=".4"
+          fill={seed%5===0?'var(--effort-pixel-bright)':seed%3===0?'var(--effort-pixel-deep)':'var(--effort-pixel-blue)'}
+          style={{'--pixel-duration':`${2+seed/55}s`,'--pixel-delay':`${-seed/23}s`,'--pixel-rest':.7+seed/340}}/>
+      </g>;
+    })}
   </svg>;
 }
 function EffortAura() {
