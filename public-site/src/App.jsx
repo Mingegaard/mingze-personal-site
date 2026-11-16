@@ -84,6 +84,14 @@ export function App() {
   const startChat = () => { store.newChat(); navigate('chat'); };
   useEffect(() => () => store.dispose(), [store]);
   useEffect(() => {
+    if (!import.meta.env.VITE_SUPABASE_URL) return;
+    // Establish the public API connection before the visitor opens the guestbook.
+    const link=document.createElement('link');
+    link.rel='preconnect';link.href=import.meta.env.VITE_SUPABASE_URL;link.crossOrigin='anonymous';
+    document.head.append(link);
+    return ()=>link.remove();
+  }, []);
+  useEffect(() => {
     const update = () => setPage(currentPage());
     window.addEventListener('hashchange', update);
     return () => window.removeEventListener('hashchange', update);
@@ -124,7 +132,7 @@ export function App() {
         <nav className="site-navigation" aria-label={t('navigation')}>
           <button type="button" className="site-nav-button" onClick={startChat} title={wide ? undefined : t('newChat')} aria-label={t('newChat')}><Icon kind="new"/>{wide && <span>{t('newChat')}</span>}</button>
           <button type="button" className="site-nav-button" aria-current={page === 'profile' ? 'page' : undefined} onClick={() => navigate('profile')} title={wide ? undefined : t('profile')} aria-label={t('profile')}><ProfileIcon/>{wide && <span>{t('profile')}</span>}</button>
-          <button type="button" className="site-nav-button" aria-current={page === 'guestbook' ? 'page' : undefined} onClick={() => navigate('guestbook')} title={wide ? undefined : t('guestbook')} aria-label={t('guestbook')}><GuestbookIcon/>{wide && <span>{t('guestbook')}</span>}</button>
+          <button type="button" className="site-nav-button" aria-current={page === 'guestbook' ? 'page' : undefined} onPointerEnter={() => {void api.prefetchList();}} onFocus={() => {void api.prefetchList();}} onPointerDown={() => {void api.prefetchList();}} onClick={() => navigate('guestbook')} title={wide ? undefined : t('guestbook')} aria-label={t('guestbook')}><GuestbookIcon/>{wide && <span>{t('guestbook')}</span>}</button>
         </nav>
         <div className="site-history"><ChatHistory store={store} t={t} wide={wide} open={openChat}/></div>
         <button type="button" className="site-nav-button site-settings-trigger" onClick={() => setSettings(true)} title={wide ? undefined : t('settings')} aria-label={t('settings')}><Icon kind="settings"/>{wide && <span>{t('settings')}</span>}</button>

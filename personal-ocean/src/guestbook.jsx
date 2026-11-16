@@ -88,21 +88,33 @@ function MessageThread({ comment, t, api, onReplyPosted }) {
   const [expanded,setExpanded] = useState(false);
   const [target,setTarget] = useState(null);
   const [posting,setPosting] = useState(false);
-  const [replies,setReplies] = useState({items:comment.replies || [],cursor:null,loaded:false,busy:false,error:''});
-  const controller = useRef(null), generation = useRef(0), fetching = useRef(false);
+  const [replies,setReplies] = useState(() => {
+    const cached=api.peekReplies?.({parentId:comment.id});
+    return {items:cached?.items || comment.replies || [],cursor:cached?.nextCursor??null,loaded:false,busy:false,error:'',errorCursor:null};
+  });
+  const controller = useRef(null), generation = useRef(0), fetching = useRef(false), mutations = useRef(0), refreshQueued = useRef(false), postedReplies = useRef(new Map());
   const repliesId = useId();
   useEffect(() => {const epoch=++generation.current;return ()=>{if(generation.current===epoch)generation.current++;controller.current?.abort();};},[api]);
-  const load = async (cursor = null) => {
+  const load = async (cursor = null, force = false) => {
     if (fetching.current) return;
-    fetching.current=true;const epoch=generation.current;
+    fetching.current=true;const epoch=generation.current, revision=mutations.current;
     const pending=new AbortController();controller.current=pending;
     setReplies(value=>({...value,busy:true,error:''}));
     try {
-      const result=await api.replies({parentId:comment.id,cursor,signal:pending.signal});
+      const result=await api.replies({parentId:comment.id,cursor,signal:pending.signal,force});
       if(epoch!==generation.current)return;
-      setReplies(value=>({...value,items:mergeComments(value.items,result.items).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt)),cursor:result.nextCursor??null,loaded:true,busy:false}));
-    } catch(error) {if(epoch===generation.current&&error?.name!=='AbortError')setReplies(value=>({...value,busy:false,error:errorCopy(error,t,'loadError')}));}
-    finally {if(controller.current===pending){controller.current=null;fetching.current=false;}}
+      // Do not overwrite a reply posted while this read was in flight.
+      if(revision!==mutations.current){refreshQueued.current=true;return;}
+      for(const reply of result.items)postedReplies.current.delete(reply.id);
+      // New replies can be newer than the first ascending page. Keep them visible until paged in.
+      setReplies(value=>({...value,items:mergeComments(cursor?mergeComments(value.items,result.items):result.items,[...postedReplies.current.values()]).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt)),cursor:result.nextCursor??null,loaded:true,busy:false}));
+    } catch(error) {if(epoch===generation.current&&error?.name!=='AbortError')setReplies(value=>({...value,busy:false,error:errorCopy(error,t,'loadError'),errorCursor:cursor}));}
+    finally {
+      if(controller.current===pending){
+        controller.current=null;fetching.current=false;
+        if(epoch===generation.current&&refreshQueued.current){refreshQueued.current=false;void load(null,true);}
+      }
+    }
   };
   const toggle = () => {
     if(!expanded&&!replies.loaded)void load();
@@ -114,7 +126,9 @@ function MessageThread({ comment, t, api, onReplyPosted }) {
     try {
       const created=await api.post({content,parentId:comment.id,...(target?.id!==comment.id?{replyToId:target.id}:{})});
       if(epoch!==generation.current)return;
+      mutations.current++;
       const reply={...created,...(target?.id!==comment.id&&!created.replyToDisplayName?{replyToId:target.id,replyToDisplayName:nameOf(target)}:{})};
+      postedReplies.current.set(reply.id,reply);
       setReplies(value=>({...value,items:mergeComments(value.items,[reply])}));
       setExpanded(true);setTarget(null);onReplyPosted(comment.id);
       if(!replies.loaded)void load();
@@ -126,8 +140,8 @@ function MessageThread({ comment, t, api, onReplyPosted }) {
     {count>0 && <button type="button" className="guestbook-expand" aria-expanded={expanded} aria-controls={repliesId} onClick={toggle}><span className="guestbook-expand-line" aria-hidden="true"/>{t(expanded?'hideReplies':'showReplies',{count})}<svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{transform:expanded?'rotate(180deg)':undefined}}><path d="m4 6 4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></button>}
     {expanded && <div className="guestbook-replies" id={repliesId} aria-label={t('replyList')}>
       {replies.items.map(reply=><Message key={reply.id} comment={reply} t={t} onReply={setTarget} disabled={posting} replyTo={reply.replyToId&&reply.replyToId!==comment.id?(reply.replyToDisplayName||nameOf(replies.items.find(item=>item.id===reply.replyToId))):null}/>)}
-      {replies.busy && <p className="guestbook-loading" role="status">{t('loading')}</p>}
-      {replies.error && <div className="guestbook-inline-error" role="alert"><span>{replies.error}</span><button type="button" className="guestbook-text-button" onClick={()=>load(replies.loaded?replies.cursor:null)}>{t('retry')}</button></div>}
+      {replies.busy&&!replies.items.length && <p className="guestbook-loading" role="status">{t('loading')}</p>}
+      {replies.error && <div className="guestbook-inline-error" role="alert"><span>{replies.error}</span><button type="button" className="guestbook-text-button" onClick={()=>load(replies.errorCursor,true)}>{t('retry')}</button></div>}
       {replies.cursor&&!replies.error&&<button type="button" className="guestbook-text-button guestbook-more-replies" disabled={replies.busy} onClick={()=>load(replies.cursor)}>{t(replies.busy?'loading':'moreReplies')}<span aria-hidden="true"> ↓</span></button>}
     </div>}
     {target && <div className="guestbook-reply-form"><MessageComposer t={t} target={target} onSubmit={postReply} onCancel={()=>setTarget(null)}/></div>}
@@ -135,22 +149,33 @@ function MessageThread({ comment, t, api, onReplyPosted }) {
 }
 
 export function GuestbookPage({ t, api }) {
-  const [feed,setFeed] = useState({items:[],cursor:null,busy:true,error:''});
-  const generation = useRef(0), controller = useRef(null), fetching = useRef(false);
-  const load = async (cursor = null) => {
+  const initialFeed=()=>{
+    const cached=api.peekList?.();
+    return {items:cached?.items || [],cursor:cached?.nextCursor??null,loaded:!!cached,busy:!cached,error:'',errorCursor:null};
+  };
+  const [feed,setFeed] = useState(initialFeed);
+  const generation = useRef(0), controller = useRef(null), fetching = useRef(false), mutations = useRef(0), refreshQueued = useRef(false);
+  const load = async (cursor = null, force = false) => {
     if(fetching.current)return;
-    fetching.current=true;const epoch=generation.current;
+    fetching.current=true;const epoch=generation.current, revision=mutations.current;
     const pending=new AbortController();controller.current=pending;
     setFeed(value=>({...value,busy:true,error:''}));
     try {
-      const result=await api.list({cursor,signal:pending.signal});
+      const result=await api.list({cursor,signal:pending.signal,force});
       if(epoch!==generation.current)return;
-      setFeed(value=>({items:mergeComments(value.items,result.items),cursor:result.nextCursor??null,busy:false,error:''}));
-    } catch(error) {if(epoch===generation.current&&error?.name!=='AbortError')setFeed(value=>({...value,busy:false,error:errorCopy(error,t,'loadError')}));}
-    finally {if(controller.current===pending){controller.current=null;fetching.current=false;}}
+      if(revision!==mutations.current){refreshQueued.current=true;return;}
+      // A refreshed first page replaces stale entries, including moderated messages.
+      setFeed(value=>({...value,items:cursor?mergeComments(value.items,result.items):result.items,cursor:result.nextCursor??null,loaded:true,busy:false,error:''}));
+    } catch(error) {if(epoch===generation.current&&error?.name!=='AbortError')setFeed(value=>({...value,busy:false,error:errorCopy(error,t,'loadError'),errorCursor:cursor}));}
+    finally {
+      if(controller.current===pending){
+        controller.current=null;fetching.current=false;
+        if(epoch===generation.current&&refreshQueued.current){refreshQueued.current=false;void load(null,true);}
+      }
+    }
   };
   useEffect(() => {
-    generation.current++;fetching.current=false;setFeed({items:[],cursor:null,busy:true,error:''});
+    generation.current++;fetching.current=false;setFeed(initialFeed());
     void load();
     return ()=>{generation.current++;controller.current?.abort();};
   },[api]);
@@ -158,17 +183,21 @@ export function GuestbookPage({ t, api }) {
     const epoch=generation.current;
     const created=await api.post({content});
     if(epoch!==generation.current)return;
-    setFeed(value=>({...value,items:mergeComments([created],value.items)}));
+    mutations.current++;
+    setFeed(value=>({...value,items:mergeComments([created],value.items),loaded:true}));
   };
-  const replied = id => setFeed(value=>({...value,items:value.items.map(item=>item.id===id?{...item,replyCount:(item.replyCount||0)+1}:item)}));
+  const replied = id => {
+    mutations.current++;
+    setFeed(value=>({...value,items:value.items.map(item=>item.id===id?{...item,replyCount:(item.replyCount||0)+1}:item)}));
+  };
   return <section className="personal-guestbook" aria-label={t('guestbook')}><div className="guestbook-wrap">
     <header className="guestbook-heading"><h1>{t('guestbook')}</h1><p>{t('intro')}</p></header>
     <MessageComposer t={t} onSubmit={post}/>
     <div className="guestbook-feed" aria-label={t('messageList')} aria-busy={feed.busy}>
       {feed.items.map(comment=><MessageThread key={comment.id} comment={comment} t={t} api={api} onReplyPosted={replied}/>)}
-      {!feed.busy&&!feed.error&&!feed.items.length&&<div className="guestbook-empty"><GuestbookIcon size={28}/><h2>{t('emptyTitle')}</h2><p>{t('emptyHint')}</p></div>}
-      {feed.busy&&<p className="guestbook-loading" role="status"><span className="guestbook-loading-dot" aria-hidden="true"/>{t('loading')}</p>}
-      {feed.error&&<div className="guestbook-feed-error" role="alert"><p>{feed.error}</p><button type="button" className="guestbook-secondary" onClick={()=>load(feed.cursor)}>{t('retry')}</button></div>}
+      {feed.loaded&&!feed.error&&!feed.items.length&&<div className="guestbook-empty"><GuestbookIcon size={28}/><h2>{t('emptyTitle')}</h2><p>{t('emptyHint')}</p></div>}
+      {feed.busy&&!feed.loaded&&<p className="guestbook-loading" role="status"><span className="guestbook-loading-dot" aria-hidden="true"/>{t('loading')}</p>}
+      {feed.error&&<div className="guestbook-feed-error" role="alert"><p>{feed.error}</p><button type="button" className="guestbook-secondary" onClick={()=>load(feed.errorCursor,true)}>{t('retry')}</button></div>}
       {feed.cursor&&!feed.error&&<button type="button" className="guestbook-secondary guestbook-load-more" disabled={feed.busy} onClick={()=>load(feed.cursor)}>{t(feed.busy?'loading':'moreMessages')}<span aria-hidden="true"> ↓</span></button>}
     </div>
   </div></section>;
