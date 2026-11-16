@@ -71,14 +71,14 @@ for (const [locale,copy] of Object.entries(profileLocales)) for (const level of 
 }
 
 const balanceCopy = {
- zh:'模型服务余额或额度不足，请检查账户后重试。',
- en:'Insufficient model service balance or quota. Check your account and try again.',
- ja:'モデルサービスの残高または利用枠が不足しています。アカウントを確認して再試行してください。',
- es:'Saldo o cuota insuficiente del servicio de modelos. Revisa tu cuenta e inténtalo de nuevo.',
- fr:'Solde ou quota du service de modèles insuffisant. Vérifiez votre compte et réessayez.',
- de:'Guthaben oder Kontingent des Modelldienstes reicht nicht aus. Prüfen Sie Ihr Konto und versuchen Sie es erneut.',
- ru:'Недостаточно средств или квоты сервиса моделей. Проверьте аккаунт и повторите попытку.',
- pt:'Saldo ou cota insuficiente do serviço de modelos. Verifique sua conta e tente novamente.',
+ zh:'由于网站主人贫困导致模型服务余额不足，点击此处捐款。',
+ en:'The site owner is broke, so there’s not enough credit for the model service. Click here to donate.',
+ ja:'サイト主が金欠のため、モデルサービスの残高が足りません。寄付するにはこちらをクリック。',
+ es:'El dueño de la web está sin un céntimo y no queda saldo suficiente para el modelo. Haz clic aquí para donar.',
+ fr:'Le propriétaire du site est fauché : le solde du service du modèle est insuffisant. Cliquez ici pour faire un don.',
+ de:'Der Website-Betreiber ist pleite, deshalb reicht das Guthaben für den Modelldienst nicht mehr. Hier klicken, um zu spenden.',
+ ru:'Хозяин сайта на мели, поэтому для работы модели не хватает средств. Нажмите здесь, чтобы сделать пожертвование.',
+ pt:'O dono do site está sem grana e não tem saldo suficiente para o serviço do modelo. Clique aqui para doar.',
 };
 for (const [locale, value] of Object.entries(balanceCopy)) profileLocales[locale].chatBalance = value;
 
