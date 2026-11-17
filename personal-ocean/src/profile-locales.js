@@ -36,14 +36,14 @@ const homeTitles = {zh:'了解铭泽的一切',en:'Get to know Mingze',ja:'銘�
 for (const [locale,title] of Object.entries(homeTitles)) profileLocales[locale].homeTitle = title;
 
 const chatCopy = {
- zh:['聊天','你','助手','正在回复…','想了解些什么？','停止','发送','聊天记录','还没有聊天记录','暂时无法回复，请稍后重试。'],
- en:['Chat','You','Assistant','Replying…','What would you like to know?','Stop','Send','Chat history','No conversations yet','Unable to reply. Please try again shortly.'],
- ja:['チャット','あなた','アシスタント','返信中…','何を知りたいですか？','停止','送信','チャット履歴','まだ会話はありません','返信できません。後でもう一度お試しください。'],
- es:['Chat','Tú','Asistente','Respondiendo…','¿Qué te gustaría saber?','Detener','Enviar','Historial','Aún no hay conversaciones','No se pudo responder. Inténtalo de nuevo.'],
- fr:['Discussion','Vous','Assistant','Réponse en cours…','Que souhaitez-vous savoir ?','Arrêter','Envoyer','Historique','Aucune discussion','Impossible de répondre. Réessayez plus tard.'],
- de:['Chat','Du','Assistent','Antwort wird erstellt…','Was möchtest du wissen?','Stoppen','Senden','Chatverlauf','Noch keine Gespräche','Antwort nicht möglich. Bitte später erneut versuchen.'],
- ru:['Чат','Вы','Ассистент','Отвечаю…','Что вы хотите узнать?','Остановить','Отправить','История чатов','Разговоров пока нет','Не удалось ответить. Попробуйте позже.'],
- pt:['Chat','Você','Assistente','Respondendo…','O que gostaria de saber?','Parar','Enviar','Histórico','Ainda não há conversas','Não foi possível responder. Tente novamente.'],
+ zh:['聊天','你','助手','正在回复…','请介绍一下你自己。','停止','发送','聊天记录','还没有聊天记录','暂时无法回复，请稍后重试。'],
+ en:['Chat','You','Assistant','Replying…','Please introduce yourself.','Stop','Send','Chat history','No conversations yet','Unable to reply. Please try again shortly.'],
+ ja:['チャット','あなた','アシスタント','返信中…','自己紹介をしてください。','停止','送信','チャット履歴','まだ会話はありません','返信できません。後でもう一度お試しください。'],
+ es:['Chat','Tú','Asistente','Respondiendo…','Preséntate, por favor.','Detener','Enviar','Historial','Aún no hay conversaciones','No se pudo responder. Inténtalo de nuevo.'],
+ fr:['Discussion','Vous','Assistant','Réponse en cours…','Présentez-vous, s’il vous plaît.','Arrêter','Envoyer','Historique','Aucune discussion','Impossible de répondre. Réessayez plus tard.'],
+ de:['Chat','Du','Assistent','Antwort wird erstellt…','Bitte stell dich vor.','Stoppen','Senden','Chatverlauf','Noch keine Gespräche','Antwort nicht möglich. Bitte später erneut versuchen.'],
+ ru:['Чат','Вы','Ассистент','Отвечаю…','Пожалуйста, представьтесь.','Остановить','Отправить','История чатов','Разговоров пока нет','Не удалось ответить. Попробуйте позже.'],
+ pt:['Chat','Você','Assistente','Respondendo…','Apresente-se, por favor.','Parar','Enviar','Histórico','Ainda não há conversas','Não foi possível responder. Tente novamente.'],
 };
 for (const [locale, values] of Object.entries(chatCopy)) Object.assign(profileLocales[locale],
  Object.fromEntries(['chatLabel','chatYou','chatAssistant','chatThinking','chatPlaceholder','chatStop','chatSend','chatHistory','chatHistoryEmpty','chatError'].map((key,i)=>[key,values[i]])));
