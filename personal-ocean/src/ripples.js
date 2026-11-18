@@ -38,13 +38,13 @@ export function mountRipples() {
     width = innerWidth;
     height = innerHeight;
     // Match AsciiRenderer.resize: both fixed canvases share the viewport origin and grid.
-    cellWidth = Math.max(8, Math.min(13, Math.round(width / 124)));
-    cellHeight = Math.round(cellWidth * 1.45);
+    cellWidth = Math.max(6, Math.min(9, Math.round(width / 190)));
+    cellHeight = Math.round(cellWidth * 1.55);
     const scale = Math.min(devicePixelRatio || 1, 2);
     canvas.width = Math.round(width * scale);
     canvas.height = Math.round(height * scale);
     context.setTransform(scale, 0, 0, scale, 0, 0);
-    context.font = `600 ${Math.round(cellHeight * .74)}px 'SFMono-Regular', Menlo, Consolas, monospace`;
+    context.font = `500 ${Math.round(cellHeight * .88)}px 'SFMono-Regular', Menlo, Consolas, monospace`;
     context.textAlign = 'center';
     context.textBaseline = 'middle';
   }
@@ -71,12 +71,10 @@ export function mountRipples() {
           const intensity = Math.max(main, echo) * fade;
           if (intensity < .025) continue;
           const hash = (col * 17 + row * 31 + wave.seed) % 11;
-          const glyph = intensity > .45 ? (hash % 2 ? '1' : '0') : intensity > .16 ? (hash < 5 ? '+' : ':') : '·';
-          // Leave the same one-pixel gutter as shark cells, with one centered glyph per cell.
-          context.globalAlpha = intensity * .18;
-          context.fillRect(col * cellWidth + 1, row * cellHeight + 1, cellWidth - 1, cellHeight - 1);
+          const glyph = intensity > .45 ? (hash % 2 ? '+' : 'x') : intensity > .16 ? (hash < 5 ? ':' : ';') : '.';
+          // Character-only rings share the ocean's monospace rhythm.
           context.globalAlpha = intensity * .8;
-          context.fillText(glyph, x, y + 1, cellWidth - 2);
+          context.fillText(glyph, x, y);
         }
       }
     }

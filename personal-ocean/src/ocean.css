@@ -1,4 +1,4 @@
-/* Light paper, quiet charcoal, and translucent surfaces over the living grid. */
+/* Light paper, quiet charcoal, and translucent surfaces over the living ASCII ocean. */
 html[data-personal-ocean] body {
   --ocean-paper: #fff;
   --ocean-glass: rgb(245 245 243 / 48%);
@@ -26,11 +26,7 @@ html[data-personal-ocean] body[data-ds-dark-theme] {
   pointer-events: none;
   font-family: 'SFMono-Regular', Menlo, Consolas, monospace;
   opacity: var(--ocean-opacity);
-  /* Warm monochrome inverted onto white produces a blue ocean, with a white paper background. */
-  filter: grayscale(1) sepia(1) saturate(3) hue-rotate(350deg) invert(1);
-}
-body[data-ds-dark-theme] .personal-ocean-canvas {
-  filter: grayscale(1) sepia(1) saturate(3) hue-rotate(175deg);
+  /* The transparent canvas supplies blue character ink for each theme. */
 }
 html[data-personal-ocean] #root { position: relative; z-index: 1; background: transparent; }
 
