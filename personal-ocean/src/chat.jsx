@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import React, { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { FolderIcon, ProjectNavigation, ProjectPage } from './chat-projects.jsx';
 import { ChatRow, useManagementDialog } from './chat-management.jsx';
 import { orderedChats } from './chat-store.js';
@@ -29,6 +29,7 @@ export function PersonalChat({store, t}) {
   const project = state.projects.find(p => p.id === state.projectId);
   const active = messages.length > 0;
   const showProject = state.projectView && !!project;
+  const disclaimerId = useId();
   const end = useRef(null), composerInput = useRef(null);
   useLayoutEffect(() => { fitComposer(composerInput.current); },[state.draft,active,showProject]);
   useEffect(() => {
@@ -56,17 +57,20 @@ export function PersonalChat({store, t}) {
           {state.busy && <p className="personal-chat-status" role="status">{t('chatThinking')}</p>}
           <div ref={end}/>
         </div>}
-      <form className="personal-chat-composer" data-composer-card onSubmit={event => {event.preventDefault(); void store.send();}}>
-        <textarea ref={composerInput} aria-label={t('chatPlaceholder')} placeholder={t('chatPlaceholder')} maxLength={8000}
-          value={state.draft} onChange={e=>store.draft(e.target.value)} rows={active ? 1 : 3}
-          onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();void store.send();}}}/>
-        <div className="personal-chat-actions">
-          <ChatModelSelect selection={state.selection} onSelect={store.setSelection} disabled={state.busy} t={t}/>
-          {state.busy ? <button className="personal-chat-submit" type="button" aria-label={t('chatStop')} onClick={store.stop}>■</button> :
-            <button className="personal-chat-submit" type="submit" disabled={!state.draft.trim()} aria-label={t('chatSend')}>↑</button>}
-        </div>
-        {state.error && <p className="personal-chat-error" role="alert">{t(CHAT_ERROR_KEYS.get(state.error) ?? 'chatError')}</p>}
-      </form>
+      <div className="personal-chat-compose-area">
+        {active && <p id={disclaimerId} className="personal-chat-disclaimer">{t('chatDisclaimer')}</p>}
+        <form className="personal-chat-composer" data-composer-card onSubmit={event => {event.preventDefault(); void store.send();}}>
+          <textarea ref={composerInput} aria-label={t('chatPlaceholder')} aria-describedby={active ? disclaimerId : undefined} placeholder={t('chatPlaceholder')} maxLength={8000}
+            value={state.draft} onChange={e=>store.draft(e.target.value)} rows={active ? 1 : 3}
+            onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();void store.send();}}}/>
+          <div className="personal-chat-actions">
+            <ChatModelSelect selection={state.selection} onSelect={store.setSelection} disabled={state.busy} t={t}/>
+            {state.busy ? <button className="personal-chat-submit" type="button" aria-label={t('chatStop')} onClick={store.stop}>■</button> :
+              <button className="personal-chat-submit" type="submit" disabled={!state.draft.trim()} aria-label={t('chatSend')}>↑</button>}
+          </div>
+          {state.error && <p className="personal-chat-error" role="alert">{t(CHAT_ERROR_KEYS.get(state.error) ?? 'chatError')}</p>}
+        </form>
+      </div>
       {state.storageError && <p className="personal-chat-error" role="alert">{t('chatStorageError')}</p>}
     </div>
   </section>;

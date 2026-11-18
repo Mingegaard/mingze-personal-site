@@ -2,6 +2,8 @@
 .personal-chat-scroll{height:100%;overflow:auto;box-sizing:border-box;padding:64px 28px 30px;display:flex;flex-direction:column;align-items:center;gap:24px}
 .personal-chat[data-phase=hero] .personal-chat-scroll{justify-content:center;padding-bottom:100px}
 .personal-chat-title{font-family:inherit;font-weight:300;font-size:clamp(30px,4.6vw,58px);line-height:1.2;letter-spacing:-.045em;margin:0 0 38px;text-align:center;text-shadow:0 2px 24px var(--ocean-paper)}
+.personal-chat-compose-area{width:100%;max-width:800px;flex:none}
+.personal-chat-disclaimer{margin:0 0 8px;padding:0 8px;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:1.5;text-align:center;text-wrap:balance;overflow-wrap:anywhere}
 .personal-chat-composer{width:100%;max-width:800px;box-sizing:border-box;border:1px solid var(--ocean-line);border-radius:22px;background:var(--ocean-glass);box-shadow:var(--ocean-shadow);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);padding:16px;flex:none}
 .personal-chat-composer:focus-within{border-color:#397fc480}
 .personal-chat-composer textarea{display:block;resize:none;min-height:64px;max-height:240px;width:100%;box-sizing:border-box;padding:0;border:0;outline:none;background:transparent;color:inherit;font:inherit;font-size:14px;line-height:1.7}

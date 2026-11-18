@@ -48,6 +48,18 @@ const chatCopy = {
 for (const [locale, values] of Object.entries(chatCopy)) Object.assign(profileLocales[locale],
  Object.fromEntries(['chatLabel','chatYou','chatAssistant','chatThinking','chatPlaceholder','chatStop','chatSend','chatHistory','chatHistoryEmpty','chatError'].map((key,i)=>[key,values[i]])));
 
+const chatDisclaimers = {
+ zh:'AI 生成的内容可能有误，请核实重要信息。',
+ en:'AI can make mistakes. Check important information.',
+ ja:'AI の回答には誤りが含まれる場合があります。重要な情報は確認してください。',
+ es:'La IA puede cometer errores. Verifica la información importante.',
+ fr:'L’IA peut commettre des erreurs. Vérifiez les informations importantes.',
+ de:'KI kann Fehler machen. Überprüfe wichtige Informationen.',
+ ru:'ИИ может ошибаться. Проверяйте важную информацию.',
+ pt:'A IA pode cometer erros. Verifique as informações importantes.',
+};
+for (const [locale, value] of Object.entries(chatDisclaimers)) profileLocales[locale].chatDisclaimer = value;
+
 const modelCopy = {
  zh:['选择模型','模型和推理强度','模型','推理强度','返回','搜索模型','关闭','低','高','最高'],
  en:['Select model','Model and reasoning effort','Model','Reasoning effort','Back','Search models','Off','Low','High','Max'],
