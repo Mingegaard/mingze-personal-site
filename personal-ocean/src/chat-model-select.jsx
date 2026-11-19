@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { CHAT_MODELS, CHAT_EFFORTS } from '../chat-options.mjs';
-import evolutionSprite from './assets/reasoning-evolution-ascii.png';
+import evolutionSprite from './assets/reasoning-evolution-ui.png';
 
 function EffortHelp({t, open}) {
   const id = useId(), tooltip = useRef(null), trigger = useRef(null);
@@ -31,13 +31,13 @@ function EffortHelp({t, open}) {
 
 // Tight frame bounds keep each pose readable inside the compact slider thumb.
 const evolutionFrames = [[55,367,340,308],[473,225,314,450],[859,116,316,558],[1262,69,420,606],[1729,55,388,620]];
-function EvolutionFigure({index}) {
+function EvolutionFigure({index, ready}) {
   const id = useId(), clipId = `${id}-clip`, outlineId = `${id}-outline`;
   const [x,y,width,height] = evolutionFrames[index] ?? evolutionFrames[0];
   const unit = Math.max(width / 48, height / 52);
   const outline = unit * 1.2;
   const pad = unit * 6;
-  return <svg className="personal-effort-figure" viewBox={`0 0 ${width} ${height}`} aria-hidden="true" focusable="false">
+  return <svg className="personal-effort-figure" viewBox={`0 0 ${width} ${height}`} style={{visibility:ready?'visible':'hidden'}} aria-hidden="true" focusable="false">
     <defs>
       <clipPath id={clipId}><rect width={width} height={height}/></clipPath>
       <filter id={outlineId} filterUnits="userSpaceOnUse" primitiveUnits="userSpaceOnUse" x={-pad} y={-pad} width={width+pad*2} height={height+pad*2} colorInterpolationFilters="sRGB">
@@ -138,6 +138,16 @@ function EffortAura() {
   </svg>;
 }
 export function ChatModelSelect({selection, onSelect, disabled, t}) {
+  const [spriteReady, setSpriteReady] = useState(false);
+  useEffect(() => {
+    let active = true;
+    // Preload outside the hidden popover and reveal only a fully decoded image.
+    // Otherwise browsers can paint a partly downloaded PNG into the SVG filter.
+    const image = new Image();
+    image.src = evolutionSprite;
+    image.decode().then(() => { if (active) setSpriteReady(true); }).catch(() => {});
+    return () => { active = false; };
+  }, []);
   const [open, setOpen] = useState(null);
   const [search, setSearch] = useState('');
   const [position, setPosition] = useState({});
@@ -228,7 +238,7 @@ export function ChatModelSelect({selection, onSelect, disabled, t}) {
         <div className="personal-effort-ticks" aria-hidden="true">{CHAT_EFFORTS.map(level=><i key={level}/>)}</div>
         <div className="personal-effort-thumb" aria-hidden="true"><EffortAura/>
           {CHAT_EFFORTS.map((level,index)=><div key={level} className="personal-effort-pose" data-active={index===effortIndex} data-level={level}>
-            <EvolutionFigure index={index}/>
+            <EvolutionFigure index={index} ready={spriteReady}/>
           </div>)}
         </div>
         <input type="range" min="0" max={CHAT_EFFORTS.length-1} step="1" value={effortIndex} disabled={disabled}
