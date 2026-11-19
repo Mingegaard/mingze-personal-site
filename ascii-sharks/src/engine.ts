@@ -18,7 +18,6 @@ export class OceanEngine {
   private reducedMotion: MediaQueryList;
   private resizeObserver: ResizeObserver;
   private intersectionObserver: IntersectionObserver;
-  private themeObserver: MutationObserver;
   private disposed = false;
 
   constructor(private canvas: HTMLCanvasElement, sharks?: SharkSpec[]) {
@@ -34,13 +33,6 @@ export class OceanEngine {
       this.schedule();
     });
     this.intersectionObserver.observe(canvas);
-    this.themeObserver = new MutationObserver(() => {
-      if (this.reducedMotion.matches) this.drawStill();
-    });
-    this.themeObserver.observe(canvas.ownerDocument.body, {
-      attributes: true,
-      attributeFilter: ["data-ds-dark-theme"],
-    });
 
     this.reducedMotion.addEventListener("change", this.onMotionPreference);
     window.addEventListener("pointermove", this.onPointerMove, { passive: true });
@@ -50,7 +42,7 @@ export class OceanEngine {
 
     this.resize();
     // Canvas text can't trigger a webfont load; once the mono face is in, redraw.
-    document.fonts?.load(`700 16px ${getComputedStyle(canvas).fontFamily}`).then(() => {
+    document.fonts?.load(`600 16px ${getComputedStyle(canvas).fontFamily}`).then(() => {
       if (!this.disposed && this.reducedMotion.matches) this.drawStill();
     });
     this.schedule();
@@ -61,7 +53,6 @@ export class OceanEngine {
     cancelAnimationFrame(this.raf);
     this.resizeObserver.disconnect();
     this.intersectionObserver.disconnect();
-    this.themeObserver.disconnect();
     this.reducedMotion.removeEventListener("change", this.onMotionPreference);
     window.removeEventListener("pointermove", this.onPointerMove);
     window.removeEventListener("pointerdown", this.onPointerDown);

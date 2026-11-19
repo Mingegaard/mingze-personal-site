@@ -1,20 +1,38 @@
 /**
- * A living ASCII drawing. Silhouettes, shading, fish and wakes are all
- * coloured monospace glyphs on a transparent canvas; no painted cells.
- * The logical character lattice is only used for sampling and simulation.
+ * Draws the World as a grid of ASCII cells:
+ *   1. a pure black cell grid
+ *   2. a wake field that diffuses where things swim, lighting the dots cyan
+ *   3. fish as minimal ASCII dashes, one per cell, glinting on hard turns
+ *   4. sharks rasterised cell-by-cell with supersampled edges: grey blocks
+ *      shaded by the light, dense glyphs, and shimmering accent colours
  */
 import { clamp, hash3, smoothstep } from "./math";
 import { SHARK_NODES, type Shark, type SharkKind, type World } from "./world";
 
+const ALPHA_LEVELS = 6;
 const FISH_ALPHAS = [0.28, 0.42, 0.58, 0.74, 0.9];
 
-// Increasing ink coverage, with several characters at each density. Texture
-// stays attached to the animal while lighting determines the density band.
-const GLYPH_BANDS = [".'`", ",:-", ";_~", "!il|", "trf/", "vczx", "nusoe", "aehk", "23SZ", "45GXO", "6qpQ", "9AUR", "8B$", "%MW", "#@&"];
-const EDGE_HEAVY = ":;!i";
-const EDGE_LIGHT = ".,'";
-const INK_LIGHT = ["#cedce6", "#b4c8d9", "#94b2ca", "#7299b8", "#5180a6", "#376b96", "#245783", "#18466e", "#103657", "#0b2945", "#071d34", "#041326"];
-const INK_DARK = ["#1b2c3d", "#263f56", "#355670", "#476f8b", "#5d89a4", "#79a4ba", "#98bfce", "#b6d3dd", "#cee3e9", "#dfedf1", "#edf6f8", "#f8fcff"];
+// Dot colour classes: blue, green, red, pale; the last entry is the cyan wake.
+const DOT_RGB: [number, number, number][] = [
+  [48, 52, 235],
+  [52, 205, 60],
+  [228, 50, 44],
+  [190, 212, 255],
+  [110, 230, 255],
+];
+const DOT_BASE_ALPHA = [1, 1, 1, 1, 1];
+const WAKE = DOT_RGB.length - 1;
+
+const ACCENTS = ["#e0892c", "#e03a32", "#b44ae0", "#33c8cc", "#3cb54a", "#3150e8", "#d9c14a"];
+
+// Sparse glyphs on bright skin, dense glyphs in shadow, so the texture
+// reinforces the shading instead of fighting it.
+const SKIN_RAMP = ":;t%SX8#@";
+const FIN_GLYPHS = "%;tS:";
+const RIDGE_GLYPHS = "@8%";
+const EDGE_HEAVY = ":;";
+const EDGE_LIGHT = ".',`";
+
 
 const FLAG_BODY = 1;
 const FLAG_EDGE = 2;
@@ -215,6 +233,8 @@ const SHAPES: Record<SharkKind, SharkShape> = {
   },
 };
 
+const KINDS = Object.keys(SHAPES) as SharkKind[];
+
 function inTriangle(
   px: number, py: number,
   ax: number, ay: number, bx: number, by: number, cx: number, cy: number,
@@ -248,6 +268,7 @@ export function paintGrid(g: CanvasRenderingContext2D, W: number, H: number, cw:
 
 export class AsciiRenderer {
   private ctx: CanvasRenderingContext2D;
+  private bg: HTMLCanvasElement;
   private dpr = 1;
   private width = 0;
   private height = 0;
@@ -256,17 +277,25 @@ export class AsciiRenderer {
   private cols = 0;
   private rows = 0;
   private fontFamily = "ui-monospace, Menlo, monospace";
-  private dark = false;
-  private ink = INK_LIGHT;
 
+  private dotKind = new Uint8Array(0); // 0 none, 1 blue, 2 green, 3 red, 4 pale
+  private dotPhase = new Float32Array(0);
+  private dotFreq = new Float32Array(0);
   private energy = new Float32Array(0);
   private energyTmp = new Float32Array(0);
   private heat = new Float32Array(0);
+  private bucketOf = new Uint8Array(0);
+  private bucketOrder = new Int32Array(0);
+  private bucketCounts = new Int32Array(DOT_RGB.length * ALPHA_LEVELS + 1);
+  private dotStyles: string[] = [];
 
   private sharkFlag = new Uint8Array(0);
   private sharkShade = new Float32Array(0);
   private sharkKey = new Uint32Array(0);
   private sharkDepth = new Float32Array(0);
+  private sharkKind = new Uint8Array(0);
+  /** Cells darkened by a shark's shadow on the seabed. */
+  private sharkShadow = new Uint8Array(0);
   private spine = new Float32Array(SHARK_NODES * 2);
   private arc = new Float32Array(SHARK_NODES);
   private arcTotal = 1;
@@ -286,12 +315,21 @@ export class AsciiRenderer {
   private frameId = 0;
   /** Fish cells bucketed by brightness, so each bucket is one fillStyle. */
   private fishBuckets: number[][] = FISH_ALPHAS.map(() => []);
-  private fishStyles = FISH_ALPHAS.map((a) => `rgba(68,132,172,${a})`);
+  private fishStyles = FISH_ALPHAS.map((a) => `rgba(230,238,255,${a})`);
 
   constructor(private canvas: HTMLCanvasElement) {
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) throw new Error("2D canvas unavailable");
     this.ctx = ctx;
+    this.bg = document.createElement("canvas");
+
+    for (let c = 0; c < DOT_RGB.length; c++) {
+      const [r, g, b] = DOT_RGB[c];
+      for (let l = 0; l < ALPHA_LEVELS; l++) {
+        const a = (DOT_BASE_ALPHA[c] * (l + 1)) / ALPHA_LEVELS;
+        this.dotStyles.push(`rgba(${r},${g},${b},${a.toFixed(3)})`);
+      }
+    }
   }
 
   get cellWidth() {
@@ -312,57 +350,80 @@ export class AsciiRenderer {
     this.width = width;
     this.height = height;
     this.dpr = dpr;
-    this.cw = clamp(Math.round(width / 190), 6, 9);
-    this.ch = Math.round(this.cw * 1.55);
+    this.cw = clamp(Math.round(width / 124), 8, 13);
+    this.ch = Math.round(this.cw * 1.45);
     this.cols = Math.ceil(width / this.cw);
     this.rows = Math.ceil(height / this.ch);
 
     this.canvas.width = Math.round(width * dpr);
     this.canvas.height = Math.round(height * dpr);
+    this.bg.width = this.canvas.width;
+    this.bg.height = this.canvas.height;
 
     const n = this.cols * this.rows;
     if (this.cols !== prevCols || this.rows !== prevRows) {
+      this.dotKind = new Uint8Array(n);
+      this.dotPhase = new Float32Array(n);
+      this.dotFreq = new Float32Array(n);
       this.energy = new Float32Array(n);
       this.energyTmp = new Float32Array(n);
       this.heat = new Float32Array(n);
+      this.bucketOf = new Uint8Array(n);
+      this.bucketOrder = new Int32Array(n);
       this.sharkFlag = new Uint8Array(n);
       this.sharkShade = new Float32Array(n);
       this.sharkKey = new Uint32Array(n);
       this.sharkDepth = new Float32Array(n);
+      this.sharkKind = new Uint8Array(n);
+      this.sharkShadow = new Uint8Array(n);
       this.fishStamp = new Uint32Array(n);
     }
+
+    for (let i = 0; i < n; i++) {
+      const col = i % this.cols;
+      const row = (i / this.cols) | 0;
+      // No ambient dots: the grid stays black. Only the cyan wake lights cells.
+      this.dotKind[i] = 0;
+      this.dotPhase[i] = hash3(col, row, 23) * Math.PI * 2;
+      this.dotFreq[i] = 0.3 + hash3(col, row, 37) * 1.1;
+    }
+    this.paintBackground();
+  }
+
+  private paintBackground() {
+    const g = this.bg.getContext("2d");
+    if (!g) return;
+    const { width: W, height: H, dpr, cw, ch } = this;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.fillStyle = "#000";
+    g.fillRect(0, 0, W, H);
+    paintGrid(g, W, H, cw, ch, dpr);
   }
 
   render(world: World, dt: number) {
     const { ctx, dpr, cols, ch } = this;
     if (cols === 0) return;
-    const dark = this.canvas.ownerDocument.body.hasAttribute("data-ds-dark-theme")
-      || !this.canvas.ownerDocument.documentElement.hasAttribute("data-personal-ocean");
-    if (dark !== this.dark) {
-      this.dark = dark;
-      this.ink = dark ? INK_DARK : INK_LIGHT;
-      const rgb = dark ? "128,182,212" : "68,132,172";
-      this.fishStyles = FISH_ALPHAS.map(a => `rgba(${rgb},${a})`);
-    }
+    const t = world.time;
 
     this.consumeEvents(world);
-    this.rasterizeSharks(world.sharks);
+    this.rasterizeSharks(world.sharks, t);
     this.depositWake(world);
     this.diffuse(dt);
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    ctx.drawImage(this.bg, 0, 0);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    ctx.font = `700 ${Math.max(9, Math.round(ch * 0.94))}px ${this.fontFamily}`;
+    this.markFish(world);
+    this.drawDots(t);
+
+    ctx.font = `600 ${Math.round(ch * 0.74)}px ${this.fontFamily}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
-    this.markFish(world);
-    this.drawWake();
     this.drawHeat();
     this.drawFish();
-    this.drawSharks();
+    this.drawSharks(t);
   }
 
   // ── simulation → field ──────────────────────────────────────────────
@@ -503,8 +564,7 @@ export class AsciiRenderer {
       const across = a / (w || 1);
       // Rounded back lit from the top-left; flanks fall off into shadow.
       const facing = (bestNx * -0.6 + bestNy * -0.8) * across;
-      const crown = Math.sqrt(Math.max(0, 1 - across * across));
-      let shade = 0.12 + crown * 0.58 + facing * 0.55;
+      let shade = 0.58 - across * across * 0.42 + facing * 0.26;
       let flag = FLAG_BODY;
       if (s > shape.dorsal[0] && s < shape.dorsal[1] && across < 0.3) {
         // First dorsal fin, catching the light.
@@ -540,8 +600,7 @@ export class AsciiRenderer {
       !(shape.falcate && inTriangle(u, a, L * p1, 0, L * (p1 + (p2 - p1) * 0.33), tip * 0.55, L * p2, tip))
     ) {
       this.hitFlag = this.marked(s, a * bestSign, L, 0) ? FLAG_MARK : FLAG_FIN;
-      this.hitShade = 0.24 + 0.34 * (1 - clamp(a / tip, 0, 1))
-        + (bestNx * -0.6 + bestNy * -0.8) * 0.23;
+      this.hitShade = 0.38 + 0.22 * (1 - clamp(a / tip, 0, 1));
       return true;
     }
     const [v0, v1, v2, vr] = shape.pelvic;
@@ -551,7 +610,7 @@ export class AsciiRenderer {
       (shape.caudal > 0 && inTriangle(u, a, L * 0.86, 0, L * 0.95, 0, L, L * shape.caudal))
     ) {
       this.hitFlag = FLAG_FIN;
-      this.hitShade = 0.3 + (bestNx * -0.6 + bestNy * -0.8) * 0.2;
+      this.hitShade = 0.36;
       return true;
     }
     return false;
@@ -585,9 +644,10 @@ export class AsciiRenderer {
    * supersample every cell in the shark's bounding box against the shape.
    * Fully covered cells become solid skin; partial cells become edge glyphs.
    */
-  private rasterizeSharks(sharks: Shark[]) {
-    const { sharkFlag, sharkShade, sharkKey, sharkDepth, spine, arc, cw, ch, cols, rows } = this;
+  private rasterizeSharks(sharks: Shark[], t: number) {
+    const { sharkFlag, sharkShade, sharkKey, sharkDepth, sharkKind, sharkShadow, spine, arc, cw, ch, cols, rows } = this;
     sharkFlag.fill(0);
+    sharkShadow.fill(0);
 
     for (const sh of sharks) {
       const L = sh.length;
@@ -596,6 +656,7 @@ export class AsciiRenderer {
       const swim = clamp(sh.speed / 60, 0.4, 1.4);
       this.shape = SHAPES[sh.kind];
       this.sharkId = sh.id;
+      const kindIndex = KINDS.indexOf(sh.kind);
 
       // Travelling body wave, growing toward the tail.
       for (let k = 0; k < N; k++) {
@@ -645,6 +706,8 @@ export class AsciiRenderer {
       if (c0 > c1 || r0 > r1) continue;
 
       const skipBeyond = reach + Math.hypot(cw, ch);
+      const shadowDc = Math.round((L * 0.035) / cw) + 1;
+      const shadowDr = Math.round((L * 0.02) / ch) + 1;
 
       for (let r = r0; r <= r1; r++) {
         for (let c = c0; c <= c1; c++) {
@@ -669,10 +732,15 @@ export class AsciiRenderer {
           const key = (hash3(Math.round(s * 52), Math.round(v / (cw * 0.9)), sh.id) * 4294967295) >>> 0;
           sharkKey[i] = key;
           sharkDepth[i] = sh.depth;
+          sharkKind[i] = kindIndex;
 
           if (centerHit && coverage >= 0.6) {
             sharkFlag[i] = flag;
-            sharkShade[i] = clamp(shade, 0, 1);
+            const flicker = (hash3(c, r, Math.floor(t * 6)) - 0.5) * 0.06;
+            sharkShade[i] = clamp(shade + flicker, 0, 1);
+            const sc = c + shadowDc;
+            const sr = r + shadowDr;
+            if (sc < cols && sr < rows) sharkShadow[sr * cols + sc] = 1;
           } else {
             sharkFlag[i] = FLAG_EDGE;
             sharkShade[i] = coverage;
@@ -682,45 +750,73 @@ export class AsciiRenderer {
     }
   }
 
-  private drawSharks() {
-    const { ctx, cols, rows, cw, ch, sharkFlag, sharkShade, sharkKey, sharkDepth, ink } = this;
-    for (let i = 0; i < cols * rows; i++) {
+  private drawSharks(t: number) {
+    const { ctx, cols, rows, cw, ch, sharkFlag, sharkShade, sharkKey, sharkDepth, sharkKind } = this;
+    const n = cols * rows;
+    for (let i = 0; i < n; i++) {
       const flag = sharkFlag[i];
       if (!flag) continue;
+      const col = i % cols;
+      const row = (i / cols) | 0;
+      const x = col * cw;
+      const y = row * ch;
       const key = sharkKey[i];
       const shade = sharkShade[i];
-      const x = (i % cols) * cw + cw / 2;
-      const y = ((i / cols) | 0) * ch + ch / 2;
-      const variation = (((key >>> 4) % 5) - 2) * 0.012;
-      // On dark paper, dense pale glyphs catch the light. On white paper,
-      // dense navy glyphs carry the shadows. Both retain the same lighting.
-      const light = smoothstep(0.12, 0.9, shade);
-      let tone = clamp(0.06 + (this.dark ? light : 1 - light) * 0.94 + variation, 0, 1);
-      let glyph: string;
+      const dim = 0.7 + 0.3 * sharkDepth[i];
+      const [tr, tg, tb] = SHAPES[KINDS[sharkKind[i]]].tint;
+
+      // Colours re-roll on a staggered clock so the hide shimmers.
+      const tick = Math.floor(t * 2.4 + (key % 997) / 97);
+      const roll = hash3(key, tick, 7);
 
       if (flag === FLAG_EDGE) {
+        // Soft, anti-aliased silhouette: no block, just a light glyph.
         const set = shade >= 0.5 ? EDGE_HEAVY : EDGE_LIGHT;
-        glyph = set[(key >>> 8) % set.length];
-        tone = 0.15 + shade * 0.46;
-      } else if (flag === FLAG_EYE) {
-        glyph = "@";
-        tone = this.dark ? 0.22 : 1;
-      } else if (flag === FLAG_MARK) {
-        glyph = MARK_GLYPHS[(key >>> 8) % MARK_GLYPHS.length];
-        tone = this.dark ? 0.16 : 0.98;
-      } else {
-        const band = GLYPH_BANDS[Math.round(tone * (GLYPH_BANDS.length - 1))];
-        glyph = band[(key >>> 8) % band.length];
+        const g = (70 + shade * 80) * dim;
+        ctx.fillStyle =
+          roll < 0.07
+            ? ACCENTS[key % ACCENTS.length]
+            : `rgb(${Math.round(g * tr)},${Math.round(g * tg)},${Math.min(255, Math.round(g * tb + 6))})`;
+        ctx.fillText(set[(key >>> 8) % set.length], x + cw / 2, y + ch / 2 + 1);
+        continue;
       }
 
-      ctx.globalAlpha = 0.82 + 0.18 * clamp(sharkDepth[i], 0, 1);
-      ctx.fillStyle = ink[Math.round(tone * (ink.length - 1))];
-      ctx.fillText(glyph, x, y);
+      let level: number;
+      let glyph: string;
+      if (flag === FLAG_RIDGE) {
+        level = 226;
+        glyph = RIDGE_GLYPHS[(key >>> 8) % RIDGE_GLYPHS.length];
+      } else if (flag === FLAG_EYE) {
+        level = 12;
+        glyph = "o";
+      } else if (flag === FLAG_MARK) {
+        level = 24 + shade * 22;
+        glyph = MARK_GLYPHS[(key >>> 8) % MARK_GLYPHS.length];
+      } else if (flag === FLAG_FIN) {
+        level = 40 + shade * 120;
+        glyph = FIN_GLYPHS[(key >>> 8) % FIN_GLYPHS.length];
+      } else {
+        level = 46 + shade * 160;
+        const jitter = ((key >>> 4) % 3) - 1;
+        glyph = SKIN_RAMP[clamp(Math.floor((1 - shade) * 8.99) + jitter, 0, SKIN_RAMP.length - 1)];
+      }
+      level *= dim;
+      // Tinted per species; the classic tint is a cool blue-grey, like a back seen through deep water.
+      ctx.fillStyle = `rgb(${Math.min(255, Math.round(level * tr))},${Math.min(255, Math.round(level * tg))},${Math.min(255, Math.round(level * tb + 4))})`;
+      ctx.fillRect(x + 1, y + 1, cw - 1, ch - 1);
+
+      let color: string;
+      if (flag === FLAG_EYE) color = "#9aa0ad";
+      else if (flag === FLAG_MARK) color = `rgb(${Math.round(70 * tr)},${Math.round(70 * tg)},${Math.round(70 * tb)})`;
+      else if (roll < 0.09) color = ACCENTS[key % ACCENTS.length];
+      else if (roll < 0.13) color = "#ffffff";
+      else color = shade > 0.55 ? "#0e0f13" : "#1b1d24";
+      ctx.fillStyle = color;
+      ctx.fillText(glyph, x + cw / 2, y + ch / 2 + 1);
     }
-    ctx.globalAlpha = 1;
   }
 
-  // ── fish, wakes, heat ───────────────────────────────────────────────
+  // ── fish, dots, heat ────────────────────────────────────────────────
 
   /**
    * Snap each fish to a cell and bucket it by brightness: far fish are dim,
@@ -763,23 +859,72 @@ export class AsciiRenderer {
       if (h < 0.08) continue;
       const col = i % cols;
       const row = (i / cols) | 0;
-      ctx.fillStyle = this.ink[4];
-      ctx.globalAlpha = Math.min(h, 0.75);
-      ctx.fillText(h > 0.6 ? "*" : ".", col * cw + cw / 2, row * ch + ch / 2);
+      ctx.fillStyle = h > 0.5 ? `rgba(255,120,60,${h.toFixed(2)})` : `rgba(220,40,40,${(h * 1.6).toFixed(2)})`;
+      ctx.fillText(h > 0.6 ? "*" : "·", col * cw + cw / 2, row * ch + ch / 2 + 1);
     }
-    ctx.globalAlpha = 1;
   }
 
-  /** A passing wake leaves soft punctuation on otherwise empty water. */
-  private drawWake() {
-    const { ctx, cols, cw, ch, energy, sharkFlag, fishStamp, frameId } = this;
-    ctx.fillStyle = this.ink[2];
-    for (let i = 0; i < energy.length; i++) {
-      if (energy[i] < 0.45 || sharkFlag[i] || fishStamp[i] === frameId) continue;
-      const strength = clamp((energy[i] - 0.45) / 0.9, 0, 1);
-      ctx.globalAlpha = 0.12 + strength * 0.4;
-      ctx.fillText(strength > 0.65 ? ":" : ".", (i % cols) * cw + cw / 2, ((i / cols) | 0) * ch + ch / 2);
+  /**
+   * Every cell's dot twinkles on its own clock, is modulated by slow
+   * caustic light bands, and flares cyan where the wake field is strong.
+   * Dots are bucketed by colour/alpha so each bucket is one fillStyle.
+   */
+  private drawDots(t: number) {
+    const { ctx, cols, rows, cw, ch, dotKind, dotPhase, dotFreq, energy, sharkFlag, sharkShadow, fishStamp, frameId } = this;
+    const { bucketOf, bucketOrder, bucketCounts } = this;
+    const n = cols * rows;
+    const SKIP = bucketCounts.length - 1;
+    bucketCounts.fill(0);
+
+    for (let i = 0; i < n; i++) {
+      const e = energy[i];
+      const kind = dotKind[i];
+      if (sharkFlag[i] || fishStamp[i] === frameId || (kind === 0 && e < 0.45)) {
+        bucketOf[i] = SKIP;
+        continue;
+      }
+      let bucket: number;
+      if (e > 0.45) {
+        const level = clamp(Math.floor((e - 0.45) * 5), 0, ALPHA_LEVELS - 1);
+        bucket = WAKE * ALPHA_LEVELS + level;
+      } else {
+        const col = i % cols;
+        const row = (i / cols) | 0;
+        // Dots stay bright and crisp; the twinkle is a gentle breathe, not a fade.
+        const twinkle = 0.5 + 0.5 * Math.sin(t * dotFreq[i] + dotPhase[i]);
+        const caustic = 0.85 + 0.15 * Math.sin(col * 0.11 + t * 0.35) * Math.sin(row * 0.17 - t * 0.27);
+        let v = clamp((0.55 + 0.45 * twinkle) * caustic + e * 2, 0, 1);
+        if (sharkShadow[i]) v *= 0.2;
+        bucket = (kind - 1) * ALPHA_LEVELS + clamp(Math.floor(v * ALPHA_LEVELS), 0, ALPHA_LEVELS - 1);
+      }
+      bucketOf[i] = bucket;
+      bucketCounts[bucket]++;
     }
-    ctx.globalAlpha = 1;
+
+    // Counting sort cells by bucket.
+    const starts = new Int32Array(bucketCounts.length);
+    for (let b = 1; b < bucketCounts.length; b++) starts[b] = starts[b - 1] + bucketCounts[b - 1];
+    const cursor = starts.slice();
+    for (let i = 0; i < n; i++) {
+      const b = bucketOf[i];
+      if (b !== SKIP) bucketOrder[cursor[b]++] = i;
+    }
+
+    const small = Math.max(2, Math.round(cw * 0.19));
+    const large = small + 1;
+    for (let b = 0; b < SKIP; b++) {
+      const count = bucketCounts[b];
+      if (!count) continue;
+      ctx.fillStyle = this.dotStyles[b];
+      const size = b >= WAKE * ALPHA_LEVELS ? large : small;
+      const start = starts[b];
+      for (let k = start; k < start + count; k++) {
+        const i = bucketOrder[k];
+        const col = i % cols;
+        const row = (i / cols) | 0;
+        // Sit the dot low-right in its cell, as in the reference.
+        ctx.fillRect(Math.round(col * cw + cw * 0.66 - size / 2), Math.round(row * ch + ch * 0.64 - size / 2), size, size);
+      }
+    }
   }
 }
