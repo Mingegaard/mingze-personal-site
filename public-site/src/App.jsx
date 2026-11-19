@@ -42,7 +42,7 @@ function Ocean() {
     const canvas = document.createElement('canvas');
     canvas.className = 'personal-ocean-canvas';
     canvas.setAttribute('aria-hidden', 'true');
-    canvas.style.setProperty('--ocean-opacity', '.62');
+    canvas.style.setProperty('--ocean-opacity', '.92');
     // Both decorative canvases live behind #root; the ripple canvas stays on top.
     document.body.prepend(canvas);
     const engine = new OceanEngine(canvas, [{ kind: 'classic', size: 1.35 }, { kind: 'hammerhead', size: 1.05 }, { kind: 'classic', size: .95 }]);
