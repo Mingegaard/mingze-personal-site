@@ -50,7 +50,7 @@ export class OceanEngine {
 
     this.resize();
     // Canvas text can't trigger a webfont load; once the mono face is in, redraw.
-    document.fonts?.load(`500 16px ${getComputedStyle(canvas).fontFamily}`).then(() => {
+    document.fonts?.load(`700 16px ${getComputedStyle(canvas).fontFamily}`).then(() => {
       if (!this.disposed && this.reducedMotion.matches) this.drawStill();
     });
     this.schedule();

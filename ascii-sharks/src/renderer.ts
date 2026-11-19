@@ -8,15 +8,13 @@ import { SHARK_NODES, type Shark, type SharkKind, type World } from "./world";
 
 const FISH_ALPHAS = [0.28, 0.42, 0.58, 0.74, 0.9];
 
-// Light-to-dense ink: punctuation describes the edges, letters and symbols
-// build the body. A small tonal variation stays anchored to each shark.
-const SKIN_RAMP = ".,:;+xX$&@";
-const FIN_GLYPHS = ":;+xX";
-const RIDGE_GLYPHS = "+xX";
-const EDGE_HEAVY = ":;";
+// Increasing ink coverage, with several characters at each density. Texture
+// stays attached to the animal while lighting determines the density band.
+const GLYPH_BANDS = [".'`", ",:-", ";_~", "!il|", "trf/", "vczx", "nusoe", "aehk", "23SZ", "45GXO", "6qpQ", "9AUR", "8B$", "%MW", "#@&"];
+const EDGE_HEAVY = ":;!i";
 const EDGE_LIGHT = ".,'";
-const INK_LIGHT = ["#a8cbdc", "#83b5cc", "#62a0be", "#468bad", "#34789f", "#27668e", "#20567c", "#19466b"];
-const INK_DARK = ["#335c78", "#426e8d", "#5283a2", "#6598b6", "#7aadc6", "#91c0d5", "#abd3e1", "#c5e5ec"];
+const INK_LIGHT = ["#cedce6", "#b4c8d9", "#94b2ca", "#7299b8", "#5180a6", "#376b96", "#245783", "#18466e", "#103657", "#0b2945", "#071d34", "#041326"];
+const INK_DARK = ["#1b2c3d", "#263f56", "#355670", "#476f8b", "#5d89a4", "#79a4ba", "#98bfce", "#b6d3dd", "#cee3e9", "#dfedf1", "#edf6f8", "#f8fcff"];
 
 const FLAG_BODY = 1;
 const FLAG_EDGE = 2;
@@ -356,7 +354,7 @@ export class AsciiRenderer {
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    ctx.font = `500 ${Math.round(ch * 0.88)}px ${this.fontFamily}`;
+    ctx.font = `700 ${Math.max(9, Math.round(ch * 0.94))}px ${this.fontFamily}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
@@ -505,7 +503,8 @@ export class AsciiRenderer {
       const across = a / (w || 1);
       // Rounded back lit from the top-left; flanks fall off into shadow.
       const facing = (bestNx * -0.6 + bestNy * -0.8) * across;
-      let shade = 0.58 - across * across * 0.42 + facing * 0.26;
+      const crown = Math.sqrt(Math.max(0, 1 - across * across));
+      let shade = 0.12 + crown * 0.58 + facing * 0.55;
       let flag = FLAG_BODY;
       if (s > shape.dorsal[0] && s < shape.dorsal[1] && across < 0.3) {
         // First dorsal fin, catching the light.
@@ -541,7 +540,8 @@ export class AsciiRenderer {
       !(shape.falcate && inTriangle(u, a, L * p1, 0, L * (p1 + (p2 - p1) * 0.33), tip * 0.55, L * p2, tip))
     ) {
       this.hitFlag = this.marked(s, a * bestSign, L, 0) ? FLAG_MARK : FLAG_FIN;
-      this.hitShade = 0.38 + 0.22 * (1 - clamp(a / tip, 0, 1));
+      this.hitShade = 0.24 + 0.34 * (1 - clamp(a / tip, 0, 1))
+        + (bestNx * -0.6 + bestNy * -0.8) * 0.23;
       return true;
     }
     const [v0, v1, v2, vr] = shape.pelvic;
@@ -551,7 +551,7 @@ export class AsciiRenderer {
       (shape.caudal > 0 && inTriangle(u, a, L * 0.86, 0, L * 0.95, 0, L, L * shape.caudal))
     ) {
       this.hitFlag = FLAG_FIN;
-      this.hitShade = 0.36;
+      this.hitShade = 0.3 + (bestNx * -0.6 + bestNy * -0.8) * 0.2;
       return true;
     }
     return false;
@@ -691,31 +691,29 @@ export class AsciiRenderer {
       const shade = sharkShade[i];
       const x = (i % cols) * cw + cw / 2;
       const y = ((i / cols) | 0) * ch + ch / 2;
-      const variation = ((key >>> 4) % 3) - 1;
-      let tone = clamp(0.35 + (1 - shade) * 0.58 + variation * 0.035, 0, 1);
+      const variation = (((key >>> 4) % 5) - 2) * 0.012;
+      // On dark paper, dense pale glyphs catch the light. On white paper,
+      // dense navy glyphs carry the shadows. Both retain the same lighting.
+      const light = smoothstep(0.12, 0.9, shade);
+      let tone = clamp(0.06 + (this.dark ? light : 1 - light) * 0.94 + variation, 0, 1);
       let glyph: string;
 
       if (flag === FLAG_EDGE) {
         const set = shade >= 0.5 ? EDGE_HEAVY : EDGE_LIGHT;
         glyph = set[(key >>> 8) % set.length];
-        tone = 0.18 + shade * 0.3;
+        tone = 0.15 + shade * 0.46;
       } else if (flag === FLAG_EYE) {
         glyph = "@";
-        tone = 1;
+        tone = this.dark ? 0.22 : 1;
       } else if (flag === FLAG_MARK) {
         glyph = MARK_GLYPHS[(key >>> 8) % MARK_GLYPHS.length];
-        tone = 0.94;
-      } else if (flag === FLAG_RIDGE) {
-        glyph = RIDGE_GLYPHS[(key >>> 8) % RIDGE_GLYPHS.length];
-        tone = 0.4;
-      } else if (flag === FLAG_FIN) {
-        glyph = FIN_GLYPHS[clamp(Math.round(tone * (FIN_GLYPHS.length - 1)) + variation, 0, FIN_GLYPHS.length - 1)];
-        tone *= 0.85;
+        tone = this.dark ? 0.16 : 0.98;
       } else {
-        glyph = SKIN_RAMP[Math.round(tone * (SKIN_RAMP.length - 1))];
+        const band = GLYPH_BANDS[Math.round(tone * (GLYPH_BANDS.length - 1))];
+        glyph = band[(key >>> 8) % band.length];
       }
 
-      ctx.globalAlpha = 0.65 + 0.35 * clamp(sharkDepth[i], 0, 1);
+      ctx.globalAlpha = 0.82 + 0.18 * clamp(sharkDepth[i], 0, 1);
       ctx.fillStyle = ink[Math.round(tone * (ink.length - 1))];
       ctx.fillText(glyph, x, y);
     }
