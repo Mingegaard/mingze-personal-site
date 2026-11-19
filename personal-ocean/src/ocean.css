@@ -9,12 +9,12 @@ html[data-personal-ocean] body {
   background: var(--ocean-paper);
 }
 html[data-personal-ocean] body[data-ds-dark-theme] {
-  --ocean-paper: #111315;
-  --ocean-glass: rgb(25 29 32 / 54%);
-  --ocean-sidebar: rgb(25 29 32 / 55%);
-  --ocean-line: rgb(235 241 245 / 14%);
+  --ocean-paper: #000;
+  --ocean-glass: rgb(22 22 22 / 64%);
+  --ocean-sidebar: rgb(22 22 22 / 66%);
+  --ocean-line: rgb(240 240 240 / 14%);
   --ocean-shadow: 0 14px 56px rgb(0 0 0 / 16%), 0 1px 3px rgb(0 0 0 / 12%);
-  --ocean-halo: rgb(17 19 21 / 82%);
+  --ocean-halo: rgb(0 0 0 / 82%);
 }
 .personal-ocean-canvas {
   position: fixed;
