@@ -36,25 +36,3 @@ button,input,textarea,select{font-family:inherit}button{touch-action:manipulatio
 @media(max-width:599px){.site-settings{width:calc(100vw - 24px);height:min(640px,calc(100dvh - 24px));border-radius:20px}.site-settings-header{height:60px;padding:16px 18px}.site-settings-layout{display:flex;flex-direction:column;height:calc(100% - 60px)}.site-settings-nav{flex-direction:row;gap:6px;flex:none;padding:0 16px 12px;overflow-x:auto}.site-settings-nav button{justify-content:center;flex:1;padding:8px 12px;min-width:100px}.site-settings-content{flex:1;padding:8px 18px 24px}.site-setting-row{gap:14px}.site-setting-row select{width:140px;max-width:55%}.site-theme-options button{padding:5px 7px}.site-setting-font{align-items:flex-start;flex-direction:column;gap:10px}.site-font-field{width:100%}.site-model-card{padding:14px}.site-model-default{align-self:start}}
 @media(max-width:759px){.site-shell,.site-shell[data-wide=false],.site-shell[data-wide=true]{grid-template-columns:76px minmax(0,1fr)}.site-sidebar{margin:10px;height:calc(100dvh - 20px)}.site-shell[data-wide=true] .site-sidebar{position:fixed;inset:0 auto 0 0;width:min(280px,calc(100vw - 52px));background:color-mix(in srgb,var(--ocean-paper) 82%,transparent);z-index:30}.site-shell[data-wide=true] .site-mobile-shade{position:fixed;display:block;inset:0;border:0;background:rgb(13 30 48 / 15%);z-index:25}.site-content{grid-column:2}.site-shell[data-wide=false] .site-sidebar{margin:10px 6px 10px 10px}.personal-chat-scroll{padding-top:42px}.site-content .personal-chat-title{font-size:clamp(26px,5vw,36px)}}
 @media(prefers-reduced-transparency:reduce){.site-sidebar,.site-settings{background:var(--ocean-paper);-webkit-backdrop-filter:none;backdrop-filter:none}}
-
-/* Keep the summit at the poster's skyline, with open sky above the artwork. */
-.site-snow-mountain {
-  position: fixed;
-  inset: 40.5% 0 0;
-  width: 100%;
-  height: 59.5%;
-  z-index: 0;
-  pointer-events: none;
-}
-body:has(.personal-chat[data-phase="active"], .personal-guestbook, .personal-profile) .site-snow-mountain {
-  opacity: .27;
-}
-
-@media (max-width: 759px) {
-  /* Let the whole peak clear the chat composer on a narrow portrait screen. */
-  body:has(.personal-chat[data-phase="hero"]) .site-snow-mountain {
-    --snow-sky: min(70%, calc(50% + 94px));
-    top: var(--snow-sky);
-    height: calc(100% - var(--snow-sky));
-  }
-}
