@@ -14,34 +14,33 @@ void main() {
   gl_Position = vec4(a_position, 0., 1.);
 }`;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const mix = (a, b, fraction) => a + (b - a) * fraction;
+
+// Compose the whole loop around the dolphin in the opening frame.
+const openingPosition = Math.min(media.sourceStart / focus.step, focus.points.length - 1);
+const openingIndex = Math.floor(openingPosition);
+const openingStart = focus.points[openingIndex];
+const openingEnd = focus.points[Math.min(openingIndex + 1, focus.points.length - 1)];
+const [openingX, openingY, openingWidth] = openingStart.map((value, i) =>
+  mix(value, openingEnd[i], openingPosition - openingIndex)
+);
 
 function characterSpacing(width) {
   const column = clamp(5.8 + (width - 520) / 3100, 5.75, 6.15);
   return [column, column * 1.42];
 }
 
-function camera(width, height, time) {
+function camera(width, height) {
   const aspect = width / height;
   const sourceAspect = 16 / 9;
-  const sourceTime = (time + media.sourceStart) % media.sourceDuration;
-  const position = Math.min(focus.points.length - 1, sourceTime / focus.step);
-  const first = Math.floor(position);
-  const a = focus.points[first];
-  const b = focus.points[Math.min(first + 1, focus.points.length - 1)];
-  const fraction = position - first;
-  const mix = (x, y, t) => x + (y - x) * t;
-  const x = mix(a[0], b[0], fraction);
-  const y = mix(a[1], b[1], fraction);
-  const dolphinWidth = mix(a[2], b[2], fraction);
 
   // Keep a whole dolphin in the shot, including room for its tail on narrow screens.
   const narrow = clamp((1.65 - aspect) / .75, 0, 1);
-  const spanX = Math.min(1, Math.max(Math.min(1, aspect/sourceAspect), narrow * dolphinWidth * 1.48));
+  const spanX = Math.min(1, Math.max(aspect/sourceAspect, narrow * openingWidth * 1.48));
   const spanY = spanX * sourceAspect / aspect;
-  // When the animal swims near the left edge, extend the open water into the sidebar margin.
-  const targetX = .63 - .14*x;
-  const left = clamp(x - targetX*spanX, -.16*spanX, 1-spanX+.08*spanX);
-  const subjectY = mix(.455, y, .8 + .2*narrow);
+  const targetX = .63 - .14*openingX;
+  const left = clamp(openingX - targetX*spanX, -.16*spanX, 1-spanX+.08*spanX);
+  const subjectY = mix(.455, openingY, .8 + .2*narrow);
   const top = clamp(subjectY - .218*spanY, -.27, .45);
   return [left, top, spanX, spanY];
 }
@@ -97,6 +96,8 @@ function createRenderer(gl) {
   const alphabet = texture(1, uniforms.letters);
   let previousSource;
   let previousTime;
+  let layoutWidth = 0;
+  let layoutHeight = 0;
   function upload(unit, source) {
     gl.activeTexture(gl.TEXTURE0 + unit);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
@@ -120,12 +121,16 @@ function createRenderer(gl) {
         previousSource = source;
         previousTime = time;
       }
-      const [column, row] = characterSpacing(width);
-      const [left, top, spanX, spanY] = camera(width, height, time);
-      gl.uniform2f(uniforms.view, width, height);
-      gl.uniform2f(uniforms.cell, column, row);
-      gl.uniform2f(uniforms.origin, left, top);
-      gl.uniform2f(uniforms.span, spanX, spanY);
+      if (width !== layoutWidth || height !== layoutHeight) {
+        const [column, row] = characterSpacing(width);
+        const [left, top, spanX, spanY] = camera(width, height);
+        gl.uniform2f(uniforms.view, width, height);
+        gl.uniform2f(uniforms.cell, column, row);
+        gl.uniform2f(uniforms.origin, left, top);
+        gl.uniform2f(uniforms.span, spanX, spanY);
+        layoutWidth = width;
+        layoutHeight = height;
+      }
       gl.uniform1f(uniforms.night, night ? 1 : 0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     },

@@ -20,7 +20,7 @@ export function mountGlyphStill(canvas, stillUrl, camera, characterSpacing) {
     canvas.height = Math.max(1, Math.round(height * ratio));
     ctx.scale(canvas.width / width, canvas.height / height);
     const [cell, line] = characterSpacing(width);
-    const [left, top, spanX, spanY] = camera(width, height, 0);
+    const [left, top, spanX, spanY] = camera(width, height);
     ctx.font = `bold ${cell * 1.76}px Menlo, Consolas, monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
