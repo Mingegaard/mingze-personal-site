@@ -1,150 +1,266 @@
-import animation from './assets/dolphins/animation.json';
-import lightAtlas from './assets/dolphins/light.png';
-import darkAtlas from './assets/dolphins/dark.png';
+import filmUrl from './assets/dolphin/ocean.mp4';
+import stillUrl from './assets/dolphin/still.webp';
+import lettersUrl from './assets/dolphin/glyphs.png';
+import focus from './assets/dolphin/focus.json';
+import media from './assets/dolphin/media.json';
+import fragmentSource from './dolphin-ascii.frag?raw';
 
-const chunkUrls = import.meta.glob('./assets/dolphins/*.bin', {
-  eager: true, import: 'default', query: '?url&no-inline',
-});
-const { cols, rows, cellWidth, cellHeight, atlasColumns, fps, chunks } = animation;
-const cells = cols * rows;
+const vertexSource = `
+attribute vec2 a_position;
+varying vec2 v_screen;
+void main() {
+  v_screen = vec2(a_position.x*.5+.5, .5-a_position.y*.5);
+  gl_Position = vec4(a_position, 0., 1.);
+}`;
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
-async function readChunk(chunk, signal) {
-  const url = chunkUrls[`./assets/dolphins/${chunk.file}`];
-  if (!url) throw new Error('Missing dolphin animation chunk');
-  const response = await fetch(url, { signal });
-  if (!response.ok) throw new Error('Could not load dolphin animation chunk');
-  let bytes = new Uint8Array(await response.arrayBuffer());
-  if (bytes[0] === 0x1f && bytes[1] === 0x8b && bytes[2] === 8) {
-    const inflated = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
-    bytes = new Uint8Array(await new Response(inflated).arrayBuffer());
+function camera(width, height, time) {
+  const aspect = width / height;
+  const sourceAspect = 16 / 9;
+  const sourceTime = (time + media.sourceStart) % media.sourceDuration;
+  const position = Math.min(focus.points.length - 1, sourceTime / focus.step);
+  const first = Math.floor(position);
+  const a = focus.points[first];
+  const b = focus.points[Math.min(first + 1, focus.points.length - 1)];
+  const fraction = position - first;
+  const mix = (x, y, t) => x + (y - x) * t;
+  const x = mix(a[0], b[0], fraction);
+  const y = mix(a[1], b[1], fraction);
+  const dolphinWidth = mix(a[2], b[2], fraction);
+
+  // On a phone the shot must accommodate a whole dolphin and its lead room.
+  // Narrowing a window crops around the animal; the character grid never shrinks.
+  const narrow = clamp((1.65 - aspect) / .75, 0, 1);
+  const spanX = Math.min(1, Math.max(Math.min(1, aspect/sourceAspect), narrow * dolphinWidth * 1.48));
+  const spanY = spanX * sourceAspect / aspect;
+  const left = clamp(mix((1-spanX)/2, x - .58*spanX, narrow), 0, 1-spanX);
+  const subjectY = mix(.455, y, narrow);
+  const top = clamp(subjectY - .218*spanY, -.27, .36);
+  return [left, top, spanX, spanY];
+}
+
+function createRenderer(gl) {
+  function compile(type, source) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      const message = gl.getShaderInfoLog(shader);
+      gl.deleteShader(shader);
+      throw new Error(message);
+    }
+    return shader;
   }
-  if (bytes.length !== chunk.frames * cells) throw new Error('Invalid dolphin frame count');
-  // Each chunk starts at a keyframe. Later frames store just their XOR differences.
-  for (let i = cells; i < bytes.length; i++) bytes[i] ^= bytes[i - cells];
-  return bytes;
+  const program = gl.createProgram();
+  const vertex = compile(gl.VERTEX_SHADER, vertexSource);
+  const fragment = compile(gl.FRAGMENT_SHADER, fragmentSource);
+  gl.attachShader(program, vertex);
+  gl.attachShader(program, fragment);
+  gl.linkProgram(program);
+  gl.deleteShader(vertex);
+  gl.deleteShader(fragment);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    const message = gl.getProgramInfoLog(program);
+    gl.deleteProgram(program);
+    throw new Error(message);
+  }
+  gl.useProgram(program);
+  const corners = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, corners);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  const attr = gl.getAttribLocation(program, 'a_position');
+  gl.enableVertexAttribArray(attr);
+  gl.vertexAttribPointer(attr, 2, gl.FLOAT, false, 0, 0);
+  const uniforms = Object.fromEntries(['scene','letters','view','cell','origin','span','night'].map(
+    name => [name, gl.getUniformLocation(program, 'u_' + name)]
+  ));
+
+  function texture(unit, uniform) {
+    const handle = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0 + unit);
+    gl.bindTexture(gl.TEXTURE_2D, handle);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.uniform1i(uniform, unit);
+    return handle;
+  }
+  const picture = texture(0, uniforms.scene);
+  const alphabet = texture(1, uniforms.letters);
+  let previousSource;
+  let previousTime;
+  function upload(unit, source) {
+    gl.activeTexture(gl.TEXTURE0 + unit);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+  }
+  return {
+    setLetters(image) { upload(1, image); },
+    draw(canvas, source, time, night) {
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      if (!width || !height) return;
+      const ratio = Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(2300000/(width*height)));
+      const w = Math.max(1, Math.round(width*ratio));
+      const h = Math.max(1, Math.round(height*ratio));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+        gl.viewport(0, 0, w, h);
+      }
+      if (source !== previousSource || time !== previousTime) {
+        upload(0, source);
+        previousSource = source;
+        previousTime = time;
+      }
+      const cell = clamp(6.65 + (width - 520) / 1100, 6.5, 7.5);
+      const [left, top, spanX, spanY] = camera(width, height, time);
+      gl.uniform2f(uniforms.view, width, height);
+      gl.uniform2f(uniforms.cell, cell, cell*1.5);
+      gl.uniform2f(uniforms.origin, left, top);
+      gl.uniform2f(uniforms.span, spanX, spanY);
+      gl.uniform1f(uniforms.night, night ? 1 : 0);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    },
+    destroy() {
+      gl.deleteTexture(picture);
+      gl.deleteTexture(alphabet);
+      gl.deleteBuffer(corners);
+      gl.deleteProgram(program);
+    },
+  };
 }
 
 export function mountDolphinPlayer(canvas) {
-  const context = canvas.getContext('2d', { alpha: false });
+  const gl = canvas.getContext('webgl', { alpha:false, depth:false, stencil:false, antialias:false, powerPreference:'low-power' });
+  if (!gl) return { setTheme() {}, destroy() {} };
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
   const connection = navigator.connection;
-  const cache = new Map();
-  const displayed = new Uint8Array(cells);
-  canvas.width = cols * cellWidth;
-  canvas.height = rows * cellHeight;
-  let atlasUrl;
-  let atlas;
-  let paper;
-  let chunkIndex = 0;
-  let frameIndex = 0;
-  let timer;
-  let generation = 0;
+  const video = document.createElement('video');
+  video.muted = true;
+  video.loop = true;
+  video.playsInline = true;
+  video.preload = 'none';
+  const still = new Image();
+  const letters = new Image();
+  let renderer;
+  let assetsReady = false;
+  let destroyed = false;
+  let dark = false;
+  let callback = null;
+  let hasVideoFrame = false;
+  let frameTime = 0;
 
-  function loadChunk(index) {
-    if (!cache.has(index)) {
-      const abort = new AbortController();
-      const entry = { abort, failed: false };
-      entry.frames = readChunk(chunks[index], abort.signal).catch(() => {
-        entry.failed = true;
-        return null;
-      });
-      cache.set(index, entry);
-    }
-    return cache.get(index).frames;
-  }
-
-  function draw(sheet, frame) {
-    if (!canvas.hasAttribute('data-playing')) {
-      context.fillStyle = paper;
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      displayed.fill(0);
-    }
-    for (let i = 0; i < cells; i++) {
-      const tile = frame[i];
-      if (displayed[i] === tile) continue;
-      context.drawImage(sheet,
-        (tile % atlasColumns) * cellWidth, Math.floor(tile / atlasColumns) * cellHeight, cellWidth, cellHeight,
-        (i % cols) * cellWidth, Math.floor(i / cols) * cellHeight, cellWidth, cellHeight,
-      );
-    }
-    displayed.set(frame);
+  const reduced = () => motion.matches || connection?.saveData;
+  function paint() {
+    if (destroyed || !renderer || !assetsReady || document.hidden) return;
+    const film = hasVideoFrame && !reduced() && video.readyState >= 2;
+    renderer.draw(canvas, film ? video : still, film ? frameTime : 0, dark);
     canvas.setAttribute('data-playing', '');
   }
-
-  async function playFrame() {
-    const current = generation;
-    if (!atlas) {
-      const image = new Image();
-      image.src = atlasUrl;
-      atlas = image.decode().then(() => image).catch(() => null);
-    }
-    const [sheet, frames] = await Promise.all([atlas, loadChunk(chunkIndex)]);
-    if (current !== generation) return;
-    if (!sheet || !frames) {
-      if (!sheet) atlas = null;
-      canvas.removeAttribute('data-playing');
-      return;
-    }
-    const start = performance.now();
-    draw(sheet, frames.subarray(frameIndex * cells, (frameIndex + 1) * cells));
-    const next = (chunkIndex + 1) % chunks.length;
-    if (chunks[chunkIndex].frames - frameIndex <= fps * 2) loadChunk(next);
-    timer = setTimeout(() => {
-      if (++frameIndex === chunks[chunkIndex].frames) {
-        if (next !== chunkIndex) cache.delete(chunkIndex);
-        chunkIndex = next;
-        frameIndex = 0;
+  function stopFrames() {
+    if (callback === null) return;
+    if (video.cancelVideoFrameCallback) video.cancelVideoFrameCallback(callback);
+    else cancelAnimationFrame(callback);
+    callback = null;
+  }
+  function nextFrame() {
+    if (callback !== null || video.paused || document.hidden || destroyed || !renderer) return;
+    function show(time) {
+      callback = null;
+      if (destroyed || document.hidden || video.paused) return;
+      if (video.readyState >= 2 && (!hasVideoFrame || time !== frameTime)) {
+        hasVideoFrame = true;
+        frameTime = time;
+        paint();
       }
-      playFrame();
-    }, Math.max(0, 1000 / fps - (performance.now() - start)));
-  }
-
-  function cancelPending() {
-    generation++;
-    clearTimeout(timer);
-  }
-  function clearCache() {
-    for (const { abort } of cache.values()) abort.abort();
-    cache.clear();
-  }
-  function syncPlayback() {
-    cancelPending();
-    if (!context || typeof DecompressionStream === 'undefined' || motion.matches || connection?.saveData) {
-      clearCache();
-      canvas.removeAttribute('data-playing');
-      return;
+      nextFrame();
     }
-    if (atlasUrl && !document.hidden && document.readyState === 'complete') {
-      for (const [index, entry] of cache) {
-        if (entry.failed) cache.delete(index);
+    callback = video.requestVideoFrameCallback
+      ? video.requestVideoFrameCallback((_, metadata) => show(metadata.mediaTime))
+      : requestAnimationFrame(() => show(video.currentTime));
+  }
+  function playback() {
+    stopFrames();
+    if (destroyed) return;
+    if (reduced()) {
+      video.pause();
+      hasVideoFrame = false;
+      if (video.hasAttribute('src')) {
+        video.removeAttribute('src');
+        video.load();
       }
-      playFrame();
+      paint();
+    } else if (!renderer || document.hidden) {
+      video.pause();
+    } else if (assetsReady && document.readyState === 'complete') {
+      paint();
+      if (!video.hasAttribute('src')) video.src = filmUrl;
+      video.play().then(nextFrame).catch(() => {}); // The themed still covers autoplay restrictions.
     }
   }
+  function initialise() {
+    try {
+      renderer = createRenderer(gl);
+      if (assetsReady) renderer.setLetters(letters);
+    } catch {
+      renderer = null; // The native poster is already visible.
+    }
+    paint();
+    playback();
+  }
+  function contextLost(event) {
+    event.preventDefault();
+    renderer = null;
+    canvas.removeAttribute('data-playing');
+    playback();
+  }
+  function failedVideo() {
+    hasVideoFrame = false;
+    stopFrames();
+    paint();
+  }
+  const resize = new ResizeObserver(paint);
+  resize.observe(canvas);
+  canvas.addEventListener('webglcontextlost', contextLost);
+  canvas.addEventListener('webglcontextrestored', initialise);
+  document.addEventListener('visibilitychange', playback);
+  motion.addEventListener('change', playback);
+  connection?.addEventListener('change', playback);
+  window.addEventListener('load', playback, {once:true});
+  video.addEventListener('playing', nextFrame);
+  video.addEventListener('error', failedVideo);
 
-  window.addEventListener('load', syncPlayback, { once: true });
-  window.addEventListener('online', syncPlayback);
-  document.addEventListener('visibilitychange', syncPlayback);
-  motion.addEventListener('change', syncPlayback);
-  connection?.addEventListener('change', syncPlayback);
+  initialise();
+  if (renderer) {
+    still.src = stillUrl;
+    letters.src = lettersUrl;
+    Promise.all([still.decode(), letters.decode()]).then(() => {
+      if (destroyed) return;
+      assetsReady = true;
+      renderer?.setLetters(letters);
+      paint();
+      playback();
+    }).catch(() => {});
+  }
   return {
-    setTheme(dark) {
-      const url = dark ? darkAtlas : lightAtlas;
-      if (url === atlasUrl) return;
-      atlasUrl = url;
-      paper = dark ? '#101010' : '#f7f7f7';
-      atlas = null;
-      canvas.removeAttribute('data-playing');
-      syncPlayback();
-    },
+    setTheme(value) { dark = value; paint(); },
     destroy() {
-      cancelPending();
-      clearCache();
-      window.removeEventListener('load', syncPlayback);
-      window.removeEventListener('online', syncPlayback);
-      document.removeEventListener('visibilitychange', syncPlayback);
-      motion.removeEventListener('change', syncPlayback);
-      connection?.removeEventListener('change', syncPlayback);
+      destroyed = true;
+      stopFrames();
+      resize.disconnect();
+      canvas.removeEventListener('webglcontextlost', contextLost);
+      canvas.removeEventListener('webglcontextrestored', initialise);
+      document.removeEventListener('visibilitychange', playback);
+      motion.removeEventListener('change', playback);
+      connection?.removeEventListener('change', playback);
+      window.removeEventListener('load', playback);
+      video.removeEventListener('playing', nextFrame);
+      video.removeEventListener('error', failedVideo);
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+      renderer?.destroy();
     },
   };
 }
