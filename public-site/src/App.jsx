@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PersonalChat, ChatHistory } from '../../personal-ocean/src/chat.jsx';
 import { createChatStore } from '../../personal-ocean/src/chat-store.js';
 import { ProfilePage, ProfileIcon } from '../../personal-ocean/src/profile.jsx';
@@ -60,6 +60,11 @@ export function App() {
     return ['light', 'dark', 'system'].includes(saved) ? saved : 'light';
   });
   const [wide, setWide] = useState(() => savedPreference(preferences.sidebar, innerWidth >= 760 ? 'wide' : 'compact') === 'wide');
+  const brand = useRef(null);
+  const collapseSidebar = () => {
+    setWide(false);
+    brand.current?.focus();
+  };
   const [fontSize,setFontSize]=useState(()=>{
     const saved=Number(savedPreference(preferences.fontSize,'14'));
     return Number.isInteger(saved)&&saved>=12&&saved<=24?saved:14;
@@ -122,20 +127,31 @@ export function App() {
     <Ocean/>
     <a className="site-skip" href="#site-content" onClick={event => {event.preventDefault();document.getElementById('site-content')?.focus();}}>{t('skipContent')}</a>
     <div className="site-shell" data-wide={wide}>
-      {wide && <button className="site-mobile-shade" aria-label={t('collapseSidebar')} onClick={() => setWide(false)}/>}
-      <aside className="site-sidebar" data-slot="sidebar" aria-label={t('navigation')}>
+      <button className="site-mobile-shade" aria-label={t('collapseSidebar')} aria-hidden={!wide} tabIndex={wide ? 0 : -1} onClick={collapseSidebar}/>
+      <aside id="site-sidebar" className="site-sidebar" data-slot="sidebar" aria-label={t('navigation')}>
         <header className="site-brand-row">
-          <button type="button" className="site-brand" onClick={startChat} aria-label="M.GAO"><img src={wide ? personalLogo : personalMark} alt="M.GAO" className={wide ? 'site-wordmark' : 'site-mark'}/></button>
-          {wide && <button type="button" className="site-icon-button" aria-label={t('collapseSidebar')} title={t('collapseSidebar')} onClick={() => setWide(false)}><Icon kind="sidebar" size={18}/></button>}
+          <button
+            ref={brand}
+            type="button"
+            className="site-brand"
+            onClick={wide ? startChat : () => setWide(true)}
+            aria-label={wide ? 'M.GAO' : `M.GAO · ${t('expandSidebar')}`}
+            aria-expanded={wide ? undefined : false}
+            aria-controls={wide ? undefined : 'site-sidebar'}
+            title={wide ? undefined : t('expandSidebar')}
+          >
+            <img src={personalLogo} alt="" aria-hidden="true" className="site-wordmark"/>
+            <img src={personalMark} alt="" aria-hidden="true" className="site-mark"/>
+          </button>
+          <button type="button" className="site-icon-button site-collapse" aria-label={t('collapseSidebar')} title={t('collapseSidebar')} aria-hidden={!wide} tabIndex={wide ? 0 : -1} onClick={collapseSidebar}><Icon kind="sidebar" size={18}/></button>
         </header>
-        {!wide && <button type="button" className="site-nav-button site-expand" aria-label={t('expandSidebar')} title={t('expandSidebar')} onClick={() => setWide(true)}><Icon kind="sidebar"/></button>}
         <nav className="site-navigation" aria-label={t('navigation')}>
-          <button type="button" className="site-nav-button" onClick={startChat} title={wide ? undefined : t('newChat')} aria-label={t('newChat')}><Icon kind="new"/>{wide && <span>{t('newChat')}</span>}</button>
-          <button type="button" className="site-nav-button" aria-current={page === 'profile' ? 'page' : undefined} onClick={() => navigate('profile')} title={wide ? undefined : t('profile')} aria-label={t('profile')}><ProfileIcon/>{wide && <span>{t('profile')}</span>}</button>
-          <button type="button" className="site-nav-button" aria-current={page === 'guestbook' ? 'page' : undefined} onPointerEnter={() => {void api.prefetchList();}} onFocus={() => {void api.prefetchList();}} onPointerDown={() => {void api.prefetchList();}} onClick={() => navigate('guestbook')} title={wide ? undefined : t('guestbook')} aria-label={t('guestbook')}><GuestbookIcon/>{wide && <span>{t('guestbook')}</span>}</button>
+          <button type="button" className="site-nav-button" onClick={startChat} title={wide ? undefined : t('newChat')} aria-label={t('newChat')}><Icon kind="new"/><span>{t('newChat')}</span></button>
+          <button type="button" className="site-nav-button" aria-current={page === 'profile' ? 'page' : undefined} onClick={() => navigate('profile')} title={wide ? undefined : t('profile')} aria-label={t('profile')}><ProfileIcon/><span>{t('profile')}</span></button>
+          <button type="button" className="site-nav-button" aria-current={page === 'guestbook' ? 'page' : undefined} onPointerEnter={() => {void api.prefetchList();}} onFocus={() => {void api.prefetchList();}} onPointerDown={() => {void api.prefetchList();}} onClick={() => navigate('guestbook')} title={wide ? undefined : t('guestbook')} aria-label={t('guestbook')}><GuestbookIcon/><span>{t('guestbook')}</span></button>
         </nav>
-        <div className="site-history"><ChatHistory store={store} t={t} wide={wide} open={openChat}/></div>
-        <button type="button" className="site-nav-button site-settings-trigger" onClick={() => setSettings(true)} title={wide ? undefined : t('settings')} aria-label={t('settings')}><Icon kind="settings"/>{wide && <span>{t('settings')}</span>}</button>
+        <div className="site-history" aria-hidden={!wide} inert={wide ? undefined : ''}><ChatHistory store={store} t={t} wide open={openChat}/></div>
+        <button type="button" className="site-nav-button site-settings-trigger" onClick={() => setSettings(true)} title={wide ? undefined : t('settings')} aria-label={t('settings')}><Icon kind="settings"/><span>{t('settings')}</span></button>
       </aside>
       <main id="site-content" className="site-content" tabIndex={-1}>
         {page === 'profile' ? <ProfilePage key={usageRevision} t={t} getLocale={() => locale}/> : page === 'guestbook' ? <GuestbookPage t={guestbookT} api={api}/> : <PersonalChat store={store} t={t}/>}
