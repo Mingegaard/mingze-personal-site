@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTransitionPlayer } from '../src/transition-player.js';
 
-function createHarness() {
+function createHarness(options = { duration: 1000 }) {
   let time = 0;
   let sequence = 0;
   const scheduled = new Map();
   const events = [];
+  const paints = [];
   const player = createTransitionPlayer({
-    duration: 1000,
+    ...options,
     now: () => time,
     requestFrame(callback) {
       const id = ++sequence;
@@ -16,7 +17,10 @@ function createHarness() {
       return id;
     },
     cancelFrame: id => scheduled.delete(id),
-    render: progress => events.push({ type: 'render', progress }),
+    render(progress, elapsed) {
+      events.push({ type: 'render', progress });
+      paints.push({ progress, elapsed });
+    },
     setActive: active => events.push({ type: 'active', active }),
   });
 
@@ -33,8 +37,29 @@ function createHarness() {
   }
 
   const commits = () => events.filter(event => event.type === 'commit').map(event => event.name);
-  return { player, events, scheduled, advanceTo, action, commits };
+  return { player, events, paints, scheduled, advanceTo, action, commits };
 }
+
+test('the default transition lasts two seconds and commits at one second', () => {
+  const h = createHarness({});
+  h.player.play(h.action('profile'));
+  h.advanceTo(500);
+  assert.deepEqual(h.paints.at(-1), { progress: .25, elapsed: 500 });
+  h.advanceTo(999);
+  assert.deepEqual(h.commits(), []);
+  h.advanceTo(1000);
+  assert.deepEqual(h.commits(), ['profile']);
+  assert.deepEqual(h.paints.at(-1), { progress: .5, elapsed: 1000 });
+
+  h.advanceTo(1999);
+  assert.equal(h.scheduled.size, 1);
+  assert.deepEqual(h.events.findLast(event => event.type === 'active'), { type: 'active', active: true });
+  h.advanceTo(2000);
+  assert.deepEqual(h.paints.at(-1), { progress: 1, elapsed: 2000 });
+  assert.equal(h.scheduled.size, 0);
+  assert.deepEqual(h.events.at(-1), { type: 'active', active: false });
+  assert.deepEqual(h.commits(), ['profile']);
+});
 
 test('rapid navigation commits only the latest destination before cover', () => {
   const h = createHarness();
@@ -75,6 +100,34 @@ test('navigation during reveal reverses and covers again before committing', () 
   h.advanceTo(1800);
   assert.deepEqual(h.commits(), ['profile', 'guestbook']);
   assert.equal(h.scheduled.size, 0);
+});
+
+test('glyph time keeps advancing when navigation reverses coverage', () => {
+  const h = createHarness();
+  h.player.play(h.action('profile'));
+  h.advanceTo(500);
+  h.advanceTo(800);
+  assert.deepEqual(h.paints.at(-1), { progress: .8, elapsed: 800 });
+  h.player.play(h.action('guestbook'));
+  h.advanceTo(900);
+  assert.ok(Math.abs(h.paints.at(-1).progress - .3) < 1e-9);
+  assert.equal(h.paints.at(-1).elapsed, 900);
+  h.advanceTo(1101);
+  assert.equal(h.paints.at(-1).elapsed, 1101);
+  assert.deepEqual(h.commits(), ['profile', 'guestbook']);
+  assert.ok(h.paints.every((paint, index) => index === 0 || paint.elapsed >= h.paints[index - 1].elapsed));
+});
+
+test('a fresh transition restarts glyph time after the previous animation and idle time', () => {
+  const h = createHarness();
+  h.player.play(h.action('profile'));
+  h.advanceTo(1000);
+  h.advanceTo(2500);
+  h.player.play(h.action('guestbook'));
+  assert.deepEqual(h.paints.at(-1), { progress: 0, elapsed: 0 });
+  h.advanceTo(2600);
+  assert.deepEqual(h.paints.at(-1), { progress: .1, elapsed: 100 });
+  assert.deepEqual(h.commits(), ['profile']);
 });
 
 test('a click exactly at the midpoint commits its new target once under cover', () => {
@@ -166,6 +219,9 @@ test('redraw retains transition progress without committing or advancing it', ()
   h.advanceTo(250);
   h.player.redraw();
   assert.deepEqual(h.events.at(-1), { type: 'render', progress: .25 });
+  assert.deepEqual(h.paints.at(-1), { progress: .25, elapsed: 250 });
+  h.player.redraw();
+  assert.deepEqual(h.paints.at(-1), { progress: .25, elapsed: 250 });
   assert.deepEqual(h.commits(), []);
   assert.equal(h.scheduled.size, 1);
   h.advanceTo(1000);
