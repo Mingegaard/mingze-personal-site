@@ -13,6 +13,7 @@ import personalMark from '../../personal-ocean/src/assets/mingze-mark.png';
 import { languages, shellLocales, translator } from './locales.js';
 import { settingsLocales } from './settings-locales.js';
 import { Settings } from './Settings.jsx';
+import { usePageTransition } from './usePageTransition.jsx';
 import '../../personal-ocean/src/ocean.css';
 import '../../personal-ocean/src/chat.css';
 import '../../personal-ocean/src/profile.css';
@@ -74,19 +75,38 @@ export function App() {
     return saved.length<=200&&CSS.supports('font-family',saved)?saved:'';
   });
   const [page, setPage] = useState(currentPage);
+  const destination = useRef(page);
+  const navigationAction = useRef(null);
+  const transition = usePageTransition();
   const [settings, setSettings] = useState(false);
   const [usageRevision, setUsageRevision] = useState(0);
   const api = useMemo(() => createGuestbookApi({ url: import.meta.env.VITE_SUPABASE_URL, publishableKey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY }), []);
   const [store] = useState(() => createChatStore({ requestChat: api.requestChat }));
   const t = useMemo(() => translator(dictionaries, locale), [locale]);
   const guestbookT = useMemo(() => translator(guestbookLocales, locale), [locale]);
-  const navigate = useCallback(next => {
-    window.location.hash = next === 'chat' ? '' : next;
-    setPage(next);
+  const changePage = useCallback((next, beforeCommit) => {
+    // Selecting an existing chat supersedes a not-yet-committed new-chat reset.
+    navigationAction.current = beforeCommit;
+    if (next === destination.current && !beforeCommit) return;
+    destination.current = next;
+    transition.run(() => {
+      const action = navigationAction.current;
+      navigationAction.current = null;
+      action?.();
+      setPage(next);
+    });
+  }, [transition.run]);
+  const navigate = useCallback((next, beforeCommit) => {
+    const hash = next === 'chat' ? '' : `#${next}`;
+    if (window.location.hash !== hash) {
+      // pushState avoids a second hashchange animation for this same click.
+      window.history.pushState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
+    }
+    changePage(next, beforeCommit);
     if (innerWidth < 760) setWide(false);
-  }, []);
+  }, [changePage]);
   const openChat = useCallback(() => navigate('chat'), [navigate]);
-  const startChat = () => { store.newChat(); navigate('chat'); };
+  const startChat = () => navigate('chat', () => store.newChat());
   useEffect(() => () => store.dispose(), [store]);
   useEffect(() => {
     if (!import.meta.env.VITE_SUPABASE_URL) return;
@@ -97,10 +117,10 @@ export function App() {
     return ()=>link.remove();
   }, []);
   useEffect(() => {
-    const update = () => setPage(currentPage());
+    const update = () => changePage(currentPage());
     window.addEventListener('hashchange', update);
     return () => window.removeEventListener('hashchange', update);
-  }, []);
+  }, [changePage]);
   useEffect(() => { document.documentElement.lang = locale; savePreference(preferences.locale, locale); }, [locale]);
   useEffect(() => { savePreference(preferences.sidebar, wide ? 'wide' : 'compact'); }, [wide]);
   useEffect(()=>{savePreference(preferences.fontSize,String(fontSize));document.documentElement.style.setProperty('--site-chat-font-size',`${fontSize}px`);},[fontSize]);
@@ -127,6 +147,7 @@ export function App() {
     <Ocean/>
     <a className="site-skip" href="#site-content" onClick={event => {event.preventDefault();document.getElementById('site-content')?.focus();}}>{t('skipContent')}</a>
     <div className="site-shell" data-wide={wide}>
+      <canvas ref={transition.canvas} className="site-page-transition" data-active={transition.active} aria-hidden="true"/>
       <button className="site-mobile-shade" aria-label={t('collapseSidebar')} aria-hidden={!wide} tabIndex={wide ? 0 : -1} onClick={collapseSidebar}/>
       <aside id="site-sidebar" className="site-sidebar" data-slot="sidebar" aria-label={t('navigation')}>
         <header className="site-brand-row">
@@ -153,7 +174,7 @@ export function App() {
         <div className="site-history" aria-hidden={!wide} inert={wide ? undefined : ''}><ChatHistory store={store} t={t} wide open={openChat}/></div>
         <button type="button" className="site-nav-button site-settings-trigger" onClick={() => setSettings(true)} title={wide ? undefined : t('settings')} aria-label={t('settings')}><Icon kind="settings"/><span>{t('settings')}</span></button>
       </aside>
-      <main id="site-content" className="site-content" tabIndex={-1}>
+      <main id="site-content" className="site-content" tabIndex={-1} aria-busy={transition.active} inert={transition.active ? '' : undefined}>
         {page === 'profile' ? <ProfilePage key={usageRevision} t={t} getLocale={() => locale}/> : page === 'guestbook' ? <GuestbookPage t={guestbookT} api={api}/> : <PersonalChat store={store} t={t}/>}
       </main>
     </div>
