@@ -9,8 +9,8 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 WIDTH, HEIGHT, STEP = 240, 135, .5
-# The opening shot shows a complete side profile. Keep the same animal in frame across the loop.
-OPENING_TIME, OPENING_BOX = 179.5, (.675, .42, .31)
+# This side profile provides a stable tracking anchor in the original footage.
+PROFILE_TIME, PROFILE_BOX = 179.5, (.675, .42, .31)
 
 
 def regions(mask):
@@ -107,11 +107,11 @@ def choose_track(targets):
     for tail in (smooth, smooth[::-1]):
         blend = np.exp(-.5 * (np.arange(len(route)) / 2.2)**2)
         tail += blend[:, None] * (join - tail[0])
-    # The opening anchor must match the static poster and optically centred crop on the first paint.
-    anchor = round(OPENING_TIME / STEP)
+    # Keep the camera on the selected animal through this broadside shot.
+    anchor = round(PROFILE_TIME / STEP)
     if anchor < len(route):
         adjustment = np.exp(-.5 * ((np.arange(len(route)) - anchor) / 2.1)**2)
-        smooth += adjustment[:, None] * (np.array(OPENING_BOX) - smooth[anchor])
+        smooth += adjustment[:, None] * (np.array(PROFILE_BOX) - smooth[anchor])
     return np.clip(smooth, 0, 1)
 
 
@@ -123,8 +123,8 @@ def generate(source, ffmpeg):
         while data := proc.stdout.read(WIDTH * HEIGHT * 3):
             f = np.frombuffer(data, np.uint8).reshape(HEIGHT, WIDTH, 3)
             boxes = candidates(f)
-            if len(targets) == round(OPENING_TIME / STEP):
-                boxes = np.array([[*OPENING_BOX, 1]])
+            if len(targets) == round(PROFILE_TIME / STEP):
+                boxes = np.array([[*PROFILE_BOX, 1]])
             targets.append(boxes)
         if proc.wait() or not targets:
             raise RuntimeError('Could not read the dolphin footage')

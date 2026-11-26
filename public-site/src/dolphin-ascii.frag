@@ -58,12 +58,11 @@ float dolphinOrFoam(vec3 pixel, vec2 center) {
 }
 
 float dolphinGlyph(float weight, float variation) {
-  if (weight > .85) return variation > .55 ? 64. : 77.;  // @ M
-  if (weight > .70) return variation > .50 ? 35. : 66.;  // # B
-  if (weight > .56) return variation > .52 ? 56. : 37.;  // 8 %
-  if (weight > .42) return variation > .58 ? 88. : 79.;  // X O
-  if (weight > .27) return variation > .48 ? 111. : 115.; // o s
-  return variation > .55 ? 43. : 99.;                    // + c
+  if (weight > .78) return variation > .55 ? 77. : 66.; // M B
+  if (weight > .57) return variation > .55 ? 64. : 78.; // @ N
+  if (weight > .34) return variation > .60 ? 35. : 56.; // # 8
+  if (weight > .16) return variation > .58 ? 88. : 79.; // X O
+  return variation > .58 ? 86. : 67.;                   // V C
 }
 
 float waterGlyph(float level, float variation) {
@@ -86,11 +85,15 @@ void main() {
   vec3 mean = .5 * mid + .125 * (left + right + above + below);
   float edge = min(min(center.x, 1.-center.x), min(center.y, 1.-center.y));
   float inFilm = smoothstep(-.002, .01, edge);
-  float material = max(dolphinOrFoam(mid, center), .76 * neutralSkin(mean)) * inFilm;
+  // A narrow fin can cross a corner of a cell without touching its center.
+  float boundary = max(max(neutralSkin(left), neutralSkin(right)),
+                       max(neutralSkin(above), neutralSkin(below)));
+  float material = max(dolphinOrFoam(mid, center), max(.76 * neutralSkin(mean), .42 * boundary)) * inFilm;
   float tone = smoothstep(.08, .78, luminance(mean));
   float random = grain(cell);
   float code;
   vec3 ink;
+  vec2 glyphUV = fract(grid);
   float opacity = 1.;
 
   // All decisions above the atlas lookup are constant across a character cell.
@@ -99,16 +102,18 @@ void main() {
     code = dolphinGlyph(clamp(density + .12*(random-.5), 0., 1.), random);
     float dx = luminance(right-left);
     float dy = luminance(below-above);
-    if (max(abs(dx),abs(dy)) > .12 && material < .81 && random > .24) {
+    if (max(abs(dx),abs(dy)) > .12 && material < .54) {
       if (abs(dx) > 2.*abs(dy)) code = 124.;       // |
       else if (abs(dy) > 2.*abs(dx)) code = 45.;  // -
       else code = dx*dy > 0. ? 47. : 92.;         // / or backslash
     }
     // Silver highlights stay visible on paper; the night palette reaches white.
-    vec3 shadow = mix(vec3(.17,.20,.22), vec3(.47,.51,.54), u_night);
-    vec3 highlight = mix(vec3(.64,.67,.69), vec3(.96,.97,.98), u_night);
+    vec3 shadow = mix(vec3(.12,.15,.17), vec3(.44,.48,.51), u_night);
+    vec3 highlight = mix(vec3(.56,.59,.61), vec3(.96,.97,.98), u_night);
     ink = mix(shadow, highlight, smoothstep(.02, 1., tone));
-    opacity = mix(.74, 1., smoothstep(.24,.67,material));
+    opacity = mix(.72, 1., smoothstep(.24,.58,material));
+    // Use the printed portion of the atlas tile, reducing the type's side bearings and leading.
+    glyphUV = vec2(.50,.45) + (glyphUV-.50) * vec2(.86,.78);
   } else {
     float level = mix(.12, smoothstep(.135,.40,luminance(mean)), inFilm);
     float textureLevel = clamp(level + .23*(random-.5), 0., 1.);
@@ -116,12 +121,12 @@ void main() {
     vec3 deep = mix(vec3(.36,.61,.76), vec3(.30,.53,.66), u_night);
     vec3 crest = mix(vec3(.57,.77,.87), vec3(.64,.83,.93), u_night);
     ink = mix(deep, crest, level);
-    float keep = .29 + .59*level;
-    opacity = step(1.-keep, grain(cell+vec2(19.,31.))) * mix(.50,.84,level);
+    float keep = .24 + .43*level;
+    opacity = step(1.-keep, grain(cell+vec2(19.,31.))) * mix(.43,.67,level);
   }
 
   float index = code - 32.;
   vec2 tile = vec2(mod(index,16.), floor(index/16.));
-  float glyph = texture2D(u_letters, (tile + clamp(fract(grid),.022,.978)) / vec2(16.,6.)).r;
+  float glyph = texture2D(u_letters, (tile + clamp(glyphUV,.022,.978)) / vec2(16.,6.)).r;
   gl_FragColor = vec4(ink, glyph * opacity);
 }

@@ -56,7 +56,7 @@ def main():
     parser.add_argument("--ffmpeg", default="ffmpeg")
     parser.add_argument("--ffprobe", default="ffprobe")
     parser.add_argument("--duration", type=float, help="Source seconds, if ffprobe is unavailable")
-    parser.add_argument("--start", type=float, default=179.5, help="Opening position in the source, in seconds")
+    parser.add_argument("--start", type=float, default=205.9, help="Opening position in the source, in seconds")
     parser.add_argument("--output", type=Path, default=ASSETS)
     args = parser.parse_args()
     duration = args.duration

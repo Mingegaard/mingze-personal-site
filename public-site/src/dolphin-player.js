@@ -15,7 +15,10 @@ void main() {
 }`;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
-const cellSize = width => clamp(6.65 + (width - 520) / 1100, 6.5, 7.5);
+function characterSpacing(width) {
+  const column = clamp(5.8 + (width - 520) / 3100, 5.75, 6.15);
+  return [column, column * 1.42];
+}
 
 function camera(width, height, time) {
   const aspect = width / height;
@@ -31,14 +34,15 @@ function camera(width, height, time) {
   const y = mix(a[1], b[1], fraction);
   const dolphinWidth = mix(a[2], b[2], fraction);
 
-  // On a phone the shot must accommodate a whole dolphin and its lead room.
-  // Narrowing a window crops around the animal; the character grid never shrinks.
+  // Keep a whole dolphin in the shot, including room for its tail on narrow screens.
   const narrow = clamp((1.65 - aspect) / .75, 0, 1);
   const spanX = Math.min(1, Math.max(Math.min(1, aspect/sourceAspect), narrow * dolphinWidth * 1.48));
   const spanY = spanX * sourceAspect / aspect;
-  const left = clamp(mix((1-spanX)/2, x - .58*spanX, narrow), 0, 1-spanX);
-  const subjectY = mix(.455, y, narrow);
-  const top = clamp(subjectY - .218*spanY, -.27, .36);
+  // When the animal swims near the left edge, extend the open water into the sidebar margin.
+  const targetX = .63 - .14*x;
+  const left = clamp(x - targetX*spanX, -.16*spanX, 1-spanX+.08*spanX);
+  const subjectY = mix(.455, y, .8 + .2*narrow);
+  const top = clamp(subjectY - .218*spanY, -.27, .45);
   return [left, top, spanX, spanY];
 }
 
@@ -116,10 +120,10 @@ function createRenderer(gl) {
         previousSource = source;
         previousTime = time;
       }
-      const cell = cellSize(width);
+      const [column, row] = characterSpacing(width);
       const [left, top, spanX, spanY] = camera(width, height, time);
       gl.uniform2f(uniforms.view, width, height);
-      gl.uniform2f(uniforms.cell, cell, cell*1.5);
+      gl.uniform2f(uniforms.cell, column, row);
       gl.uniform2f(uniforms.origin, left, top);
       gl.uniform2f(uniforms.span, spanX, spanY);
       gl.uniform1f(uniforms.night, night ? 1 : 0);
@@ -136,7 +140,7 @@ function createRenderer(gl) {
 
 export function mountDolphinPlayer(canvas) {
   const gl = canvas.getContext('webgl', { alpha:true, premultipliedAlpha:false, depth:false, stencil:false, antialias:false, powerPreference:'low-power' });
-  if (!gl) return mountGlyphStill(canvas, stillUrl, camera, cellSize);
+  if (!gl) return mountGlyphStill(canvas, stillUrl, camera, characterSpacing);
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
   const connection = navigator.connection;
   const video = document.createElement('video');
@@ -160,7 +164,7 @@ export function mountDolphinPlayer(canvas) {
     if (destroyed || fallback) return;
     const surface = document.createElement('canvas');
     canvas.after(surface);
-    const portrait = mountGlyphStill(surface, stillUrl, camera, cellSize);
+    const portrait = mountGlyphStill(surface, stillUrl, camera, characterSpacing);
     fallback = { surface, portrait };
     portrait.setTheme(dark);
   }
