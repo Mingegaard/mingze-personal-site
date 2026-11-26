@@ -17,7 +17,7 @@ function hasVisibleOverlay() {
     .some(element => element.getClientRects().length > 0 && getComputedStyle(element).visibility !== 'hidden');
 }
 
-export function mountRipples({ cellBackground = true } = {}) {
+export function mountRipples() {
   const canvas = document.createElement('canvas');
   canvas.className = 'personal-ripple-canvas';
   canvas.setAttribute('aria-hidden', 'true');
@@ -72,10 +72,9 @@ export function mountRipples({ cellBackground = true } = {}) {
           if (intensity < .025) continue;
           const hash = (col * 17 + row * 31 + wave.seed) % 11;
           const glyph = intensity > .45 ? (hash % 2 ? '1' : '0') : intensity > .16 ? (hash < 5 ? '+' : ':') : '·';
-          if (cellBackground) {
-            context.globalAlpha = intensity * .18;
-            context.fillRect(col * cellWidth + 1, row * cellHeight + 1, cellWidth - 1, cellHeight - 1);
-          }
+          // Leave the same one-pixel gutter as shark cells, with one centered glyph per cell.
+          context.globalAlpha = intensity * .18;
+          context.fillRect(col * cellWidth + 1, row * cellHeight + 1, cellWidth - 1, cellHeight - 1);
           context.globalAlpha = intensity * .8;
           context.fillText(glyph, x, y + 1, cellWidth - 2);
         }
