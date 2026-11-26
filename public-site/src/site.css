@@ -37,6 +37,14 @@ button,input,textarea,select{font-family:inherit}button{touch-action:manipulatio
 @media(max-width:759px){.site-shell,.site-shell[data-wide=false],.site-shell[data-wide=true]{grid-template-columns:76px minmax(0,1fr)}.site-sidebar{margin:10px;height:calc(100dvh - 20px)}.site-shell[data-wide=true] .site-sidebar{position:fixed;inset:0 auto 0 0;width:min(280px,calc(100vw - 52px));background:color-mix(in srgb,var(--ocean-paper) 82%,transparent);z-index:30}.site-shell[data-wide=true] .site-mobile-shade{position:fixed;display:block;inset:0;border:0;background:rgb(13 30 48 / 15%);z-index:25}.site-content{grid-column:2}.site-shell[data-wide=false] .site-sidebar{margin:10px 6px 10px 10px}.personal-chat-scroll{padding-top:42px}.site-content .personal-chat-title{font-size:clamp(26px,5vw,36px)}}
 @media(prefers-reduced-transparency:reduce){.site-sidebar,.site-settings{background:var(--ocean-paper);-webkit-backdrop-filter:none;backdrop-filter:none}}
 
+body:not([data-ds-dark-theme]) .site-shell {
+  --ocean-line: rgb(54 118 156 / 23%);
+  --dsw-alias-interactive-bg-hover: rgb(68 140 183 / 9%);
+}
+body:not([data-ds-dark-theme]) .site-nav-button > svg {
+  color: #39789e;
+}
+
 .site-dolphin-background {
   position: fixed;
   inset: 0;

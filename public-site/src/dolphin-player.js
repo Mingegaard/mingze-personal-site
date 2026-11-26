@@ -30,22 +30,30 @@ function characterSpacing(width) {
   return [column, column * 1.42];
 }
 
-function camera(width, height) {
-  const aspect = width / height;
+function camera(width, height, contentWidth = width) {
+  const visibleWidth = clamp(contentWidth, 1, width);
+  const aspect = visibleWidth / height;
   const sourceAspect = 16 / 9;
 
-  // Keep a whole dolphin in the shot, including room for its tail on narrow screens.
-  const narrow = clamp((1.65 - aspect) / .75, 0, 1);
-  const spanX = Math.min(1, Math.max(aspect/sourceAspect, narrow * openingWidth * 1.48));
-  const spanY = spanX * sourceAspect / aspect;
+  // A landscape page shows the entire source width alongside the navigation.
+  // In portrait, keep the opening animal and its lead room in the visible column.
+  const landscape = clamp((width / height - 1) / .35, 0, 1);
+  const portraitWidth = openingWidth * Math.max(1.22, 1.48 * visibleWidth / width);
+  const visibleSpan = mix(Math.min(1, Math.max(aspect / sourceAspect, portraitWidth)), 1, landscape);
   const targetX = .63 - .14*openingX;
-  const left = clamp(openingX - targetX*spanX, -.16*spanX, 1-spanX+.08*spanX);
-  const subjectY = mix(.455, openingY, .8 + .2*narrow);
+  const visibleLeft = clamp(openingX - targetX*visibleSpan, 0, 1-visibleSpan);
+
+  // Extend the same projection under the sidebar. The scene sampler reflects
+  // any coordinates beyond the left source edge back into the adjacent water.
+  const spanX = visibleSpan * width / visibleWidth;
+  const left = visibleLeft - (spanX - visibleSpan);
+  const spanY = visibleSpan * sourceAspect / aspect;
+  const subjectY = mix(openingY, mix(.455, openingY, .8), landscape);
   const top = clamp(subjectY - .218*spanY, -.27, .45);
   return [left, top, spanX, spanY];
 }
 
-function createRenderer(gl) {
+function createRenderer(gl, content) {
   function compile(type, source) {
     const shader = gl.createShader(type);
     gl.shaderSource(shader, source);
@@ -98,6 +106,7 @@ function createRenderer(gl) {
   let previousTime;
   let layoutWidth = 0;
   let layoutHeight = 0;
+  let layoutContentWidth = 0;
   function upload(unit, source) {
     gl.activeTexture(gl.TEXTURE0 + unit);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
@@ -121,15 +130,17 @@ function createRenderer(gl) {
         previousSource = source;
         previousTime = time;
       }
-      if (width !== layoutWidth || height !== layoutHeight) {
+      const contentWidth = content?.clientWidth || width;
+      if (width !== layoutWidth || height !== layoutHeight || contentWidth !== layoutContentWidth) {
         const [column, row] = characterSpacing(width);
-        const [left, top, spanX, spanY] = camera(width, height);
+        const [left, top, spanX, spanY] = camera(width, height, contentWidth);
         gl.uniform2f(uniforms.view, width, height);
         gl.uniform2f(uniforms.cell, column, row);
         gl.uniform2f(uniforms.origin, left, top);
         gl.uniform2f(uniforms.span, spanX, spanY);
         layoutWidth = width;
         layoutHeight = height;
+        layoutContentWidth = contentWidth;
       }
       gl.uniform1f(uniforms.night, night ? 1 : 0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -144,8 +155,9 @@ function createRenderer(gl) {
 }
 
 export function mountDolphinPlayer(canvas) {
+  const content = document.getElementById('site-content');
   const gl = canvas.getContext('webgl', { alpha:true, premultipliedAlpha:false, depth:false, stencil:false, antialias:false, powerPreference:'low-power' });
-  if (!gl) return mountGlyphStill(canvas, stillUrl, camera, characterSpacing);
+  if (!gl) return mountGlyphStill(canvas, stillUrl, camera, characterSpacing, content);
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
   const connection = navigator.connection;
   const video = document.createElement('video');
@@ -169,7 +181,7 @@ export function mountDolphinPlayer(canvas) {
     if (destroyed || fallback) return;
     const surface = document.createElement('canvas');
     canvas.after(surface);
-    const portrait = mountGlyphStill(surface, stillUrl, camera, characterSpacing);
+    const portrait = mountGlyphStill(surface, stillUrl, camera, characterSpacing, content);
     fallback = { surface, portrait };
     portrait.setTheme(dark);
   }
@@ -230,7 +242,7 @@ export function mountDolphinPlayer(canvas) {
   }
   function initialise() {
     try {
-      renderer = createRenderer(gl);
+      renderer = createRenderer(gl, content);
       if (assetsReady) renderer.setLetters(letters);
     } catch {
       renderer = null;
@@ -252,6 +264,7 @@ export function mountDolphinPlayer(canvas) {
   }
   const resize = new ResizeObserver(paint);
   resize.observe(canvas);
+  if (content) resize.observe(content);
   canvas.addEventListener('webglcontextlost', contextLost);
   canvas.addEventListener('webglcontextrestored', initialise);
   document.addEventListener('visibilitychange', playback);

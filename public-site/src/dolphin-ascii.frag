@@ -14,6 +14,8 @@ float luminance(vec3 rgb) {
 }
 
 vec3 sampleFilm(vec2 point) {
+  // The full-width canvas extends behind the navigation rail, left of the filmed area.
+  point.x = abs(point.x);
   return texture2D(u_scene, clamp(point, .001, .999)).rgb;
 }
 
@@ -72,6 +74,19 @@ float waterGlyph(float level, float variation) {
   return variation > .80 ? 39. : 46.;                   // ' .
 }
 
+// The bright, cool spray extends below the reflective band at the surface.
+float foamWeight(vec3 rgb, float sourceY) {
+  float surface = 1. - smoothstep(.24, .36, sourceY);
+  float spray = smoothstep(.36, .66, rgb.g) * smoothstep(.015, .10, rgb.g - rgb.r);
+  return max(surface, spray * (1. - smoothstep(.32, .52, sourceY)));
+}
+
+float foamGlyph(float tone, float variation) {
+  if (tone > .68) return variation > .45 ? 42. : 43.; // * +
+  if (tone > .35) return variation > .50 ? 61. : 126.; // = ~
+  return variation > .65 ? 115. : 120.;               // s x
+}
+
 void main() {
   vec2 grid = v_screen * u_view / u_cell;
   vec2 cell = floor(grid);
@@ -83,8 +98,7 @@ void main() {
   vec3 above = sampleFilm(center - vec2(0., .39*span.y));
   vec3 below = sampleFilm(center + vec2(0., .39*span.y));
   vec3 mean = .5 * mid + .125 * (left + right + above + below);
-  float edge = min(min(center.x, 1.-center.x), min(center.y, 1.-center.y));
-  float inFilm = smoothstep(-.002, .01, edge);
+  float inFilm = smoothstep(-.002, .01, min(center.y, 1.-center.y));
   // A narrow fin can cross a corner of a cell without touching its center.
   float boundary = max(max(neutralSkin(left), neutralSkin(right)),
                        max(neutralSkin(above), neutralSkin(below)));
@@ -111,18 +125,23 @@ void main() {
     vec3 shadow = mix(vec3(.12,.15,.17), vec3(.44,.48,.51), u_night);
     vec3 highlight = mix(vec3(.56,.59,.61), vec3(.96,.97,.98), u_night);
     ink = mix(shadow, highlight, smoothstep(.02, 1., tone));
+    float foam = (1. - u_night) * foamWeight(mean, center.y);
+    vec3 foamInk = mix(vec3(.463,.675,.780), vec3(.827,.910,.937), tone);
+    ink = mix(ink, foamInk, foam);
+    if (foam > .55) code = foamGlyph(tone, random);
     opacity = mix(.72, 1., smoothstep(.24,.58,material));
     // Use the printed portion of the atlas tile, reducing the type's side bearings and leading.
     glyphUV = vec2(.50,.45) + (glyphUV-.50) * vec2(.86,.78);
   } else {
     float level = mix(.12, smoothstep(.135,.40,luminance(mean)), inFilm);
-    float textureLevel = clamp(level + .23*(random-.5), 0., 1.);
+    float textureLevel = clamp(level + .23*(random-.5) + .11*(1.-u_night), 0., 1.);
     code = waterGlyph(textureLevel, random);
-    vec3 deep = mix(vec3(.36,.61,.76), vec3(.30,.53,.66), u_night);
-    vec3 crest = mix(vec3(.57,.77,.87), vec3(.64,.83,.93), u_night);
+    vec3 deep = mix(vec3(.212,.510,.690), vec3(.30,.53,.66), u_night);
+    vec3 crest = mix(vec3(.396,.663,.800), vec3(.64,.83,.93), u_night);
     ink = mix(deep, crest, level);
-    float keep = .24 + .43*level;
-    opacity = step(1.-keep, grain(cell+vec2(19.,31.))) * mix(.43,.67,level);
+    float keep = mix(.62+.32*level, .24+.43*level, u_night);
+    float waterOpacity = mix(mix(.77,.94,level), mix(.43,.67,level), u_night);
+    opacity = step(1.-keep, grain(cell+vec2(19.,31.))) * waterOpacity;
   }
 
   float index = code - 32.;
