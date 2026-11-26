@@ -49,7 +49,7 @@ function camera(width, height, contentWidth = width) {
   const left = visibleLeft - (spanX - visibleSpan);
   const spanY = visibleSpan * sourceAspect / aspect;
   const subjectY = mix(openingY, mix(.455, openingY, .8), landscape);
-  const top = clamp(subjectY - .218*spanY, -.27, .45);
+  const top = clamp(subjectY - .244*spanY, -.27, .45);
   return [left, top, spanX, spanY];
 }
 

@@ -21,7 +21,8 @@ vec3 sampleFilm(vec2 point) {
 
 vec2 cameraUV(vec2 viewport) {
   vec2 uv = u_origin + viewport * u_span;
-  uv.y -= max(0., u_origin.y) * (1. - smoothstep(0., .19, viewport.y));
+  // Let the surface reflections keep their scale before easing into the hero crop.
+  uv.y -= max(0., u_origin.y) * (1. - smoothstep(.06, .22, viewport.y));
   return uv;
 }
 
@@ -67,11 +68,13 @@ float dolphinGlyph(float weight, float variation) {
   return variation > .58 ? 86. : 67.;                   // V C
 }
 
-float waterGlyph(float level, float variation) {
-  if (level > .78) return variation > .57 ? 61. : 126.; // = ~
-  if (level > .54) return variation > .60 ? 58. : 45.;  // : -
-  if (level > .28) return variation > .64 ? 39. : 58.;  // ' :
-  return variation > .80 ? 39. : 46.;                   // ' .
+// Character code and approximate ink coverage, measured from this font atlas.
+vec2 waterGlyph(float coverage, float variation) {
+  if (coverage > .26) return variation > .56 ? vec2(79.,.31) : vec2(83.,.27); // O S
+  if (coverage > .205) return variation > .54 ? vec2(120.,.22) : vec2(115.,.21); // x s
+  if (coverage > .135) return variation > .48 ? vec2(61.,.19) : vec2(99.,.19); // = c
+  if (coverage > .081) return variation > .54 ? vec2(126.,.10) : vec2(45.,.09); // ~ -
+  return variation > .58 ? vec2(46.,.04) : vec2(58.,.08); // . :
 }
 
 // The bright, cool spray extends below the reflective band at the surface.
@@ -82,9 +85,10 @@ float foamWeight(vec3 rgb, float sourceY) {
 }
 
 float foamGlyph(float tone, float variation) {
-  if (tone > .68) return variation > .45 ? 42. : 43.; // * +
-  if (tone > .35) return variation > .50 ? 61. : 126.; // = ~
-  return variation > .65 ? 115. : 120.;               // s x
+  if (tone > .78) return variation > .54 ? 64. : 56.; // @ 8
+  if (tone > .53) return variation > .48 ? 37. : 79.; // % O
+  if (tone > .28) return variation > .55 ? 42. : 120.; // * x
+  return variation > .55 ? 61. : 126.;                // = ~
 }
 
 void main() {
@@ -103,7 +107,8 @@ void main() {
   float boundary = max(max(neutralSkin(left), neutralSkin(right)),
                        max(neutralSkin(above), neutralSkin(below)));
   float material = max(dolphinOrFoam(mid, center), max(.76 * neutralSkin(mean), .42 * boundary)) * inFilm;
-  float tone = smoothstep(.08, .78, luminance(mean));
+  float luma = luminance(mean);
+  float tone = smoothstep(.06, .86, luma);
   float random = grain(cell);
   float code;
   vec3 ink;
@@ -112,7 +117,8 @@ void main() {
 
   // All decisions above the atlas lookup are constant across a character cell.
   if (material > .24) {
-    float density = mix(1.-tone, .31+.69*tone, u_night);
+    // Give both the dark flukes and the pearl highlights enough printed area.
+    float density = .47 + .47*max(tone, 1.-smoothstep(.04,.37,luma));
     code = dolphinGlyph(clamp(density + .12*(random-.5), 0., 1.), random);
     float dx = luminance(right-left);
     float dy = luminance(below-above);
@@ -121,27 +127,40 @@ void main() {
       else if (abs(dy) > 2.*abs(dx)) code = 45.;  // -
       else code = dx*dy > 0. ? 47. : 92.;         // / or backslash
     }
-    // Silver highlights stay visible on paper; the night palette reaches white.
-    vec3 shadow = mix(vec3(.12,.15,.17), vec3(.44,.48,.51), u_night);
-    vec3 highlight = mix(vec3(.56,.59,.61), vec3(.96,.97,.98), u_night);
-    ink = mix(shadow, highlight, smoothstep(.02, 1., tone));
-    float foam = (1. - u_night) * foamWeight(mean, center.y);
-    vec3 foamInk = mix(vec3(.463,.675,.780), vec3(.827,.910,.937), tone);
+    vec3 silver = mix(vec3(.025,.055,.14), vec3(.64,.69,.77), smoothstep(.035,.46,luma));
+    silver = mix(silver, vec3(.99,.985,.995), smoothstep(.40,.85,luma));
+    // Carry through the violet and turquoise reflections recorded on the skin.
+    ink = clamp(silver + .52 * (mean - luma), 0., 1.);
+    float foam = foamWeight(mean, center.y);
+    vec3 foamInk = mix(vec3(.19,.36,.58), vec3(.99,.995,1.), smoothstep(.13,.79,luma));
     ink = mix(ink, foamInk, foam);
+    ink *= mix(1., .88+.10*tone, u_night);
     if (foam > .55) code = foamGlyph(tone, random);
     opacity = mix(.72, 1., smoothstep(.24,.58,material));
     // Use the printed portion of the atlas tile, reducing the type's side bearings and leading.
     glyphUV = vec2(.50,.45) + (glyphUV-.50) * vec2(.86,.78);
   } else {
-    float level = mix(.12, smoothstep(.135,.40,luminance(mean)), inFilm);
-    float textureLevel = clamp(level + .23*(random-.5) + .11*(1.-u_night), 0., 1.);
-    code = waterGlyph(textureLevel, random);
-    vec3 deep = mix(vec3(.212,.510,.690), vec3(.30,.53,.66), u_night);
-    vec3 crest = mix(vec3(.396,.663,.800), vec3(.64,.83,.93), u_night);
-    ink = mix(deep, crest, level);
-    float keep = mix(.62+.32*level, .24+.43*level, u_night);
-    float waterOpacity = mix(mix(.77,.94,level), mix(.43,.67,level), u_night);
-    opacity = step(1.-keep, grain(cell+vec2(19.,31.))) * waterOpacity;
+    // A single blue ground shows between the letters. Expand the recorded water
+    // colors around it so their differences survive the open space in the glyphs.
+    vec3 ground = mix(vec3(18.,62.,138.), vec3(11.,40.,95.), u_night) / 255.;
+    float waterDetail = inFilm * (1. - smoothstep(.86, 1., center.y));
+    vec3 water = mix(vec3(.055,.217,.525), mean, waterDetail);
+    vec3 recorded = water * mix(vec3(1.), vec3(.69,.72,.77), u_night);
+    vec3 delta = recorded - ground;
+    vec3 headroom = mix(max(ground,vec3(.15)), 1.-ground, step(vec3(0.),delta));
+    vec3 coverage = abs(delta) / headroom;
+    float required = max(coverage.r*.45, max(coverage.g,coverage.b));
+    float keep = mix(.62,.96,smoothstep(.025,.32,required));
+    float strength = .90;
+    vec2 mark = waterGlyph((required+.014)/(keep*strength) + .045*(random-.5), random);
+    code = mark.x;
+    // The apparent color is ground + area * (ink - ground).
+    ink = clamp(ground + delta/max(.045, mark.y*keep*strength), 0., 1.);
+    // Thin strokes can exaggerate tiny red/blue differences in the recording.
+    // Keep individual water marks within its blue-to-cyan range.
+    ink.g = max(ink.g, .27 * ink.b);
+    ink.r = min(ink.r, min(ink.g, ink.b) + .018);
+    opacity = step(1.-keep, grain(cell+vec2(19.,31.))) * strength;
   }
 
   float index = code - 32.;

@@ -92,6 +92,8 @@ export function App() {
     const apply = () => {
       const dark = theme === 'dark' || (theme === 'system' && media.matches);
       document.body.toggleAttribute('data-ds-dark-theme', dark);
+      const seaColor = getComputedStyle(document.body).getPropertyValue('--dolphin-sea').trim();
+      if (seaColor) document.querySelector('meta[name="theme-color"]')?.setAttribute('content', seaColor);
       setDark(dark);
     };
     apply(); media.addEventListener('change', apply);

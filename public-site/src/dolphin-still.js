@@ -4,6 +4,35 @@ function smoothstep(low, high, value) {
 }
 
 const mix = (a, b, t) => a + (b - a) * t;
+const dayWater = [18, 62, 138];
+const nightWater = [11, 40, 95];
+const openWater = [.055, .217, .525];
+const nightGain = [.69, .72, .77];
+const skinShadow = [.025, .055, .14];
+const silver = [.64, .69, .77];
+const pearl = [.99, .985, .995];
+const foamShadow = [.19, .36, .58];
+const foamWhite = [.99, .995, 1.];
+
+function cssInk(color) {
+  return 'rgb(' + color.map(channel => Math.round(255 * Math.max(0, Math.min(1, channel)))).join(',') + ')';
+}
+
+// Match the water glyphs and measured ink coverage in the film renderer.
+function waterMark(coverage, variation) {
+  if (coverage > .26) return variation > .56 ? ['O',.31] : ['S',.27];
+  if (coverage > .205) return variation > .54 ? ['x',.22] : ['s',.21];
+  if (coverage > .135) return variation > .48 ? ['=',.19] : ['c',.19];
+  if (coverage > .081) return variation > .54 ? ['~',.10] : ['-',.09];
+  return variation > .58 ? ['.',.04] : [':',.08];
+}
+
+function grain(col, row) {
+  const x = (col * .1031) % 1;
+  const y = (row * .1031) % 1;
+  const sum = x * (y + 33.33) + y * (x + 33.33) + x * (x + 33.33);
+  return ((x + y + 2 * sum) * (x + sum)) % 1;
+}
 
 // Sample the still offscreen. Only fillText draws on the visible, transparent canvas.
 export function mountGlyphStill(canvas, stillUrl, camera, characterSpacing, content) {
@@ -40,11 +69,11 @@ export function mountGlyphStill(canvas, stillUrl, camera, characterSpacing, cont
     const stepX = Math.max(1, Math.round(.32 * cell / width * spanX * sw));
     const stepY = Math.max(1, Math.round(.32 * line / height * spanY * sh));
     const finStep = Math.max(1, Math.round(sh * .03));
-    const ramp = dark ? 'XOH8BWM@' : '@MWB8HOX';
+    const ground = (dark ? nightWater : dayWater).map(channel => channel / 255);
     for (let row = 0; row * line < height; row++) {
       const y = (row + .5) * line;
-      const bend = Math.min(1, y / height / .19);
-      const v = top + y / height * spanY - Math.max(0, top) * (1 - bend*bend*(3-2*bend));
+      const viewportY = y / height;
+      const v = top + viewportY * spanY - Math.max(0, top) * (1 - smoothstep(.06, .22, viewportY));
       const sy = Math.floor(v * sh);
       for (let col = 0; col * cell < width; col++) {
         const x = (col + .5) * cell;
@@ -52,9 +81,9 @@ export function mountGlyphStill(canvas, stillUrl, camera, characterSpacing, cont
         const sx = Math.floor(u * sw);
         const offset = index(sx, sy);
         const red = data[offset], green = data[offset+1], blue = data[offset+2];
-        const luma = .29*red + .58*green + .13*blue;
-        const light = Math.min(1, luma / 205);
-        const noise = Math.abs(Math.sin(col*71.39 + row*37.21)*9173.31) % 1;
+        const rgb = [red/255, green/255, blue/255];
+        const luma = (.29*red + .58*green + .13*blue) / 255;
+        const noise = grain(col, row);
         // Keep narrow fins where the centre sample falls just outside the silhouette.
         const isBody = neutral(offset)
           || (neutral(index(sx-stepX, sy)) && neutral(index(sx+stepX, sy)))
@@ -66,36 +95,43 @@ export function mountGlyphStill(canvas, stillUrl, camera, characterSpacing, cont
         let glyph;
         let maxWidth = cell * 1.12;
         if (sx >= 0 && sx < sw && v >= 0 && v <= 1 && (isBody || fin)) {
-          const tone = Math.max(0, Math.min(1, (light - .07) * 1.22));
-          const grey = dark ? Math.round(131 + tone * 119) : Math.round(32 + tone * 110);
-          glyph = ramp[Math.round(tone * (ramp.length-1))];
-          // Reflected sky and aerated water stay cool near the surface, even in shadow.
-          const foam = dark ? 0 : Math.max(1 - smoothstep(.24, .36, v),
+          const tone = smoothstep(.06, .86, luma);
+          const foam = Math.max(1 - smoothstep(.24, .36, v),
             smoothstep(.36, .66, green/255) * smoothstep(.015, .10, (green-red)/255)
               * (1 - smoothstep(.32, .52, v)));
-          const r = mix(grey, mix(118, 211, tone), foam);
-          const g = mix(grey + 2, mix(172, 232, tone), foam);
-          const b = mix(grey + 3, mix(199, 239, tone), foam);
-          ctx.fillStyle = `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`;
-          if (foam > .55) {
-            const pair = tone > .7 ? '*+' : tone > .38 ? '~=' : 'xs';
-            glyph = pair[Number(noise > .5)];
-          }
-        } else if (dark) {
-          if (noise > .16 + .27*light) continue;
-          ctx.fillStyle = '#6693ac';
-          glyph = light > .55 ? '~' : noise < .1 ? ':' : '.';
+          const midtone = smoothstep(.035,.46,luma);
+          const highlight = smoothstep(.40,.85,luma);
+          const spray = smoothstep(.13,.79,luma);
+          const color = rgb.map((channel, i) => {
+            const skin = mix(mix(skinShadow[i], silver[i], midtone), pearl[i], highlight);
+            const reflected = Math.max(0, Math.min(1, skin + .52*(channel-luma)));
+            return mix(reflected, mix(foamShadow[i], foamWhite[i], spray), foam) * (dark ? .88+.10*tone : 1);
+          });
+          ctx.fillStyle = cssInk(color);
+          ctx.globalAlpha = 1;
+          const density = .47 + .47*Math.max(tone, 1-smoothstep(.04,.37,luma)) + .12*(noise-.5);
+          let pair = density > .78 ? 'BM' : density > .57 ? 'N@' : '#8';
+          if (foam > .55) pair = tone > .78 ? '8@' : tone > .53 ? 'O%' : tone > .28 ? 'x*' : '~=';
+          glyph = pair[Number(noise > .55)];
         } else {
-          const edge = Math.min(v, 1-v);
-          const level = mix(.12, smoothstep(.135, .40, luma/255), smoothstep(-.002, .01, edge));
-          if (noise > .62 + .32*level) continue;
-          const r = Math.round(mix(54, 101, level));
-          const g = Math.round(mix(130, 169, level));
-          const b = Math.round(mix(176, 204, level));
-          ctx.fillStyle = `rgba(${r},${g},${b},${mix(.77,.94,level)})`;
-          const texture = level + (noise-.5)*.23 + .11;
-          const pair = texture > .78 ? '~=' : texture > .54 ? '-:' : texture > .28 ? ":'" : ".'";
-          glyph = pair[Number((noise*7) % 1 > .60)];
+          const waterDetail = smoothstep(-.002,.01,v) * (1 - smoothstep(.86,1,v));
+          const delta = rgb.map((channel, i) => {
+            const recorded = mix(openWater[i], channel, waterDetail) * (dark ? nightGain[i] : 1);
+            return recorded - ground[i];
+          });
+          const coverage = delta.map((d, i) => Math.abs(d) / (d < 0 ? Math.max(ground[i],.15) : 1-ground[i]));
+          const required = Math.max(.45 * coverage[0], coverage[1], coverage[2]);
+          const keep = mix(.62,.96,smoothstep(.025,.32,required));
+          if (grain(col+19, row+31) < 1-keep) continue;
+          const strength = .90;
+          const [mark, area] = waterMark((required+.014)/(keep*strength) + .045*(noise-.5), noise);
+          const painted = Math.max(.045, area * keep * strength);
+          const ink = delta.map((d, i) => Math.max(0, Math.min(1, ground[i] + d / painted)));
+          ink[1] = Math.max(ink[1], .27 * ink[2]);
+          ink[0] = Math.min(ink[0], Math.min(ink[1], ink[2]) + .018);
+          ctx.fillStyle = cssInk(ink);
+          ctx.globalAlpha = strength;
+          glyph = mark;
           maxWidth = cell * .82;
         }
         ctx.fillText(glyph, x, y, maxWidth);
