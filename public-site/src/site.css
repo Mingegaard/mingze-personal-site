@@ -22,7 +22,7 @@ button,input,textarea,select{font-family:inherit}button{touch-action:manipulatio
   min-width: 0;
   height: calc(100dvh - 24px);
   margin: 12px;
-  padding: 14px 10px 10px;
+  padding: 14px 5px 10px;
   overflow: hidden;
   border: 1px solid var(--ocean-line);
   border-radius: 22px;
@@ -32,7 +32,6 @@ button,input,textarea,select{font-family:inherit}button{touch-action:manipulatio
   box-shadow: var(--ocean-shadow), inset 0 1px 0 rgb(255 255 255 / 16%);
   z-index: 20;
   transition: width var(--sidebar-duration) var(--sidebar-easing),
-    padding var(--sidebar-duration) var(--sidebar-easing),
     margin var(--sidebar-duration) var(--sidebar-easing);
 }
 .site-brand-row {
@@ -41,10 +40,8 @@ button,input,textarea,select{font-family:inherit}button{touch-action:manipulatio
   align-items: center;
   flex: none;
   min-height: 45px;
-  margin-bottom: 10px;
-  padding: 0 7px;
-  transition: padding var(--sidebar-duration) var(--sidebar-easing),
-    margin-bottom var(--sidebar-duration) var(--sidebar-easing);
+  margin-bottom: 4px;
+  padding: 0 12px;
 }
 .site-brand {
   position: relative;
@@ -74,7 +71,7 @@ button,input,textarea,select{font-family:inherit}button{touch-action:manipulatio
 .site-icon-button:hover { background: var(--dsw-alias-interactive-bg-hover); }
 .site-collapse {
   position: absolute;
-  right: 7px;
+  right: 12px;
   opacity: 1;
   visibility: visible;
   transition: opacity 160ms ease, visibility 0s;
@@ -86,7 +83,7 @@ button,input,textarea,select{font-family:inherit}button{touch-action:manipulatio
   gap: 10px;
   width: 100%;
   min-height: 36px;
-  padding: 8px 9px;
+  padding: 8px 14px;
   border: 0;
   border-radius: 12px;
   background: transparent;
@@ -95,7 +92,6 @@ button,input,textarea,select{font-family:inherit}button{touch-action:manipulatio
   line-height: 20px;
   text-align: left;
   cursor: pointer;
-  transition: padding var(--sidebar-duration) var(--sidebar-easing);
 }
 .site-nav-button:hover, .site-nav-button[aria-current=page] { background: var(--dsw-alias-interactive-bg-hover); }
 .site-nav-button span {
@@ -122,8 +118,7 @@ button,input,textarea,select{font-family:inherit}button{touch-action:manipulatio
 }
 .site-history > .personal-chat-history { flex: 1; min-width: 232px; }
 .site-settings-trigger { margin-top: 6px; flex: none; color: var(--dsw-alias-label-secondary); }
-.site-shell[data-wide=false] .site-sidebar { padding: 14px 5px 10px; margin-right: 8px; }
-.site-shell[data-wide=false] .site-brand-row { padding: 0 12px; margin-bottom: 4px; }
+.site-shell[data-wide=false] .site-sidebar { margin-right: 8px; }
 .site-shell[data-wide=false] .site-brand { width: 24px; }
 .site-shell[data-wide=false] .site-wordmark { opacity: 0; transform: translate(-6px, -50%); }
 .site-shell[data-wide=false] .site-mark { opacity: 1; }
@@ -133,7 +128,6 @@ button,input,textarea,select{font-family:inherit}button{touch-action:manipulatio
   pointer-events: none;
   transition: opacity 100ms ease, visibility 0s 160ms;
 }
-.site-shell[data-wide=false] .site-nav-button { padding: 8px 14px; }
 .site-shell[data-wide=false] .site-nav-button span { opacity: 0; transform: translateX(-6px); }
 .site-shell[data-wide=false] .site-history {
   margin-top: 0;

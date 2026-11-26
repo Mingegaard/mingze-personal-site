@@ -134,11 +134,11 @@ export function App() {
             ref={brand}
             type="button"
             className="site-brand"
-            onClick={wide ? startChat : () => setWide(true)}
-            aria-label={wide ? 'M.GAO' : `M.GAO · ${t('expandSidebar')}`}
-            aria-expanded={wide ? undefined : false}
-            aria-controls={wide ? undefined : 'site-sidebar'}
-            title={wide ? undefined : t('expandSidebar')}
+            onClick={() => setWide(value => !value)}
+            aria-label={`M.GAO · ${t(wide ? 'collapseSidebar' : 'expandSidebar')}`}
+            aria-expanded={wide}
+            aria-controls="site-sidebar"
+            title={t(wide ? 'collapseSidebar' : 'expandSidebar')}
           >
             <img src={personalLogo} alt="" aria-hidden="true" className="site-wordmark"/>
             <img src={personalMark} alt="" aria-hidden="true" className="site-mark"/>
