@@ -43,12 +43,10 @@ button,input,textarea,select{font-family:inherit}button{touch-action:manipulatio
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
-  background: var(--dolphin-water);
+  background: transparent;
 }
 /* The character field is rendered at the viewport's CSS size in both orientations. */
 .site-dolphin-film,
-.site-dolphin-film picture,
-.site-dolphin-film img,
 .site-dolphin-film canvas {
   position: absolute;
   inset: 0;
@@ -56,26 +54,9 @@ button,input,textarea,select{font-family:inherit}button{touch-action:manipulatio
   width: 100%;
   height: 100%;
 }
-.site-dolphin-film img { object-fit: cover; object-position: 58% 26%; }
 .site-dolphin-film canvas { opacity: 0; }
 .site-dolphin-film canvas[data-playing] { opacity: 1; }
 body:has(.personal-chat[data-phase="active"], .personal-profile, .personal-guestbook) .site-dolphin-film {
   opacity: .3;
 }
 .personal-ripple-canvas { z-index: 1; }
-
-/* A soft patch of open water keeps passing glyphs clear of the heading. */
-.personal-chat[data-phase="hero"] .personal-chat-title {
-  position: relative;
-  isolation: isolate;
-}
-.personal-chat[data-phase="hero"] .personal-chat-title::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: -.65em -1.4em;
-  pointer-events: none;
-  background: radial-gradient(ellipse, color-mix(in srgb, var(--dolphin-water) 75%, transparent) 15%, transparent 72%);
-}
-html[data-personal-ocean] body { --dolphin-water: #c5dce9; }
-html[data-personal-ocean] body[data-ds-dark-theme] { --dolphin-water: #1e303a; }

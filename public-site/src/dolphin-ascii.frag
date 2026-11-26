@@ -9,31 +9,18 @@ uniform vec2 u_span;
 uniform float u_night;
 varying vec2 v_screen;
 
-float lightness(vec3 colour) {
-  return dot(colour, vec3(.29, .58, .13));
+float luminance(vec3 rgb) {
+  return dot(rgb, vec3(.29, .58, .13));
 }
 
-// Open water stays blue even in shade. Dolphin skin and breaking waves
-// have a much more neutral red/blue balance, including along the thin fins.
-float neutralMaterial(vec3 rgb) {
-  float warm = smoothstep(.20, .62, rgb.r / (rgb.b + .012));
-  float balanced = smoothstep(.24, .74, rgb.r / (rgb.g + .018));
-  float nearBlack = (1. - smoothstep(.032, .12, max(rgb.g, rgb.b))) * .67;
-  return max(warm * (.54 + .46 * balanced), nearBlack);
+vec3 sampleFilm(vec2 point) {
+  return texture2D(u_scene, clamp(point, .001, .999)).rgb;
 }
 
-vec3 scene(vec2 source) {
-  return texture2D(u_scene, clamp(source, vec2(.001), vec2(.999))).rgb;
-}
-
-// A shaded fluke can be as blue as the sea. Check how much darker it is
-// than nearby *water* in both transmitted channels; white foam is not a reference.
-float submergedShadow(vec3 pixel, vec3 neighbour) {
-  float saltwater = smoothstep(.17,.38,neighbour.b-neighbour.r)
-                  * (1.-smoothstep(.27,.48,neighbour.r/(neighbour.b+.01)))
-                  * (1.-smoothstep(.59,.82,neighbour.g/(neighbour.b+.01)));
-  vec2 drop = (neighbour.gb - pixel.gb) / max(neighbour.gb,vec2(.13,.24));
-  return saltwater * smoothstep(.21,.56,min(drop.x,drop.y));
+vec2 cameraUV(vec2 viewport) {
+  vec2 uv = u_origin + viewport * u_span;
+  uv.y -= max(0., u_origin.y) * (1. - smoothstep(0., .19, viewport.y));
+  return uv;
 }
 
 float grain(vec2 cell) {
@@ -42,113 +29,99 @@ float grain(vec2 cell) {
   return fract((p.x + p.y) * p.z);
 }
 
-float letterInk(float code, vec2 local) {
-  float index = code - 32.;
-  vec2 tile = vec2(mod(index, 16.), floor(index / 16.));
-  return texture2D(u_letters, (tile + clamp(local, .022, .978)) / vec2(16., 6.)).r;
+float neutralSkin(vec3 rgb) {
+  float warm = smoothstep(.20, .62, rgb.r / (rgb.b + .012));
+  float balanced = smoothstep(.24, .74, rgb.r / (rgb.g + .018));
+  return warm * (.54 + .46 * balanced);
 }
 
-float bodyLetter(float tone, float slopeX, float slopeY, float random) {
-  if (max(abs(slopeX), abs(slopeY)) > .11 && random > .36) {
-    if (abs(slopeX) > 2.8 * abs(slopeY)) return 124.; // |
-    if (abs(slopeY) > 2.8 * abs(slopeX)) return 61.;  // =
-    return slopeX * slopeY > 0. ? 47. : 92.;           // / or backslash
+float submergedShadow(vec3 pixel, vec3 neighbour) {
+  float blueWater = smoothstep(.17, .38, neighbour.b - neighbour.r)
+    * (1. - smoothstep(.27, .48, neighbour.r / (neighbour.b + .01)))
+    * (1. - smoothstep(.59, .82, neighbour.g / (neighbour.b + .01)));
+  vec2 drop = (neighbour.gb - pixel.gb) / max(neighbour.gb, vec2(.13, .24));
+  return blueWater * smoothstep(.21, .56, min(drop.x, drop.y));
+}
+
+float dolphinOrFoam(vec3 pixel, vec2 center) {
+  float body = neutralSkin(pixel);
+  if (center.y > .13 && pixel.b < .56 && pixel.g < .35 && body < .93) {
+    float shade = max(submergedShadow(pixel, sampleFilm(center + vec2(.01,-.031))),
+                      submergedShadow(pixel, sampleFilm(center + vec2(-.009,.03))));
+    shade = max(shade, max(submergedShadow(pixel, sampleFilm(center + vec2(.021,.013))),
+                           submergedShadow(pixel, sampleFilm(center - vec2(.022,.011)))));
+    body = max(body, shade * (1. - smoothstep(.35, .56, pixel.b)));
   }
-  if (tone < .13) return random > .52 ? 77. : 35.;   // M #
-  if (tone < .29) return random > .45 ? 66. : 56.;   // B 8
-  if (tone < .44) return random > .59 ? 83. : 88.;   // S X
-  if (tone < .63) return random > .50 ? 101. : 111.; // e o
-  if (tone < .80) return random > .47 ? 79. : 85.;   // O U
-  return random > .55 ? 64. : 87.;                   // @ W, pearly highlights
+  float foam = smoothstep(.37, .68, pixel.g) * smoothstep(.33, .70, pixel.r / (pixel.b + .01))
+    * smoothstep(.62, .87, pixel.g / (pixel.b + .01));
+  return max(body, foam);
 }
 
-vec3 silver(float tone) {
-  vec3 back = mix(vec3(.16,.205,.23), vec3(.46,.50,.52), u_night);
-  vec3 flank = mix(vec3(.61,.65,.67), vec3(.77,.80,.81), u_night);
-  vec3 pearl = vec3(.984,.987,.976);
-  vec3 metal = mix(back, flank, smoothstep(.04,.61,tone));
-  return mix(metal, pearl, smoothstep(.48,.96,tone));
+float dolphinGlyph(float weight, float variation) {
+  if (weight > .85) return variation > .55 ? 64. : 77.;  // @ M
+  if (weight > .70) return variation > .50 ? 35. : 66.;  // # B
+  if (weight > .56) return variation > .52 ? 56. : 37.;  // 8 %
+  if (weight > .42) return variation > .58 ? 88. : 79.;  // X O
+  if (weight > .27) return variation > .48 ? 111. : 115.; // o s
+  return variation > .55 ? 43. : 99.;                    // + c
 }
 
-vec2 cameraUV(vec2 viewport) {
-  vec2 uv = u_origin + viewport * u_span;
-  // Fit the narrow ribbon of ripples above the focus, while the dolphin
-  // itself keeps its filmed proportions below the upper fifth of the screen.
-  uv.y -= max(0.,u_origin.y) * (1.-smoothstep(0.,.19,viewport.y));
-  return uv;
+float waterGlyph(float level, float variation) {
+  if (level > .78) return variation > .57 ? 61. : 126.; // = ~
+  if (level > .54) return variation > .60 ? 58. : 45.;  // : -
+  if (level > .28) return variation > .64 ? 39. : 58.;  // ' :
+  return variation > .80 ? 39. : 46.;                   // ' .
 }
 
 void main() {
-  vec2 cellCoord = v_screen * u_view / u_cell;
-  vec2 cell = floor(cellCoord);
-  vec2 local = fract(cellCoord);
-  vec2 source = cameraUV(v_screen);
-  vec2 cellSpan = u_cell / u_view * u_span;
+  vec2 grid = v_screen * u_view / u_cell;
+  vec2 cell = floor(grid);
   vec2 center = cameraUV((cell + .5) * u_cell / u_view);
-  vec3 pixel = scene(source);
-  vec3 middle = scene(center);
+  vec2 span = u_cell / u_view * u_span;
+  vec3 mid = sampleFilm(center);
+  vec3 left = sampleFilm(center - vec2(.39*span.x, 0.));
+  vec3 right = sampleFilm(center + vec2(.39*span.x, 0.));
+  vec3 above = sampleFilm(center - vec2(0., .39*span.y));
+  vec3 below = sampleFilm(center + vec2(0., .39*span.y));
+  vec3 mean = .5 * mid + .125 * (left + right + above + below);
+  float edge = min(min(center.x, 1.-center.x), min(center.y, 1.-center.y));
+  float inFilm = smoothstep(-.002, .01, edge);
+  float material = max(dolphinOrFoam(mid, center), .76 * neutralSkin(mean)) * inFilm;
+  float tone = smoothstep(.08, .78, luminance(mean));
   float random = grain(cell);
+  float code;
+  vec3 ink;
+  float opacity = 1.;
 
-  // Continue the water beyond the frame without repeating dolphins. When the
-  // camera reaches an edge, the same boundary blend also covers the source side.
-  vec2 border = min(source, 1. - source);
-  float inFilm = smoothstep(-.001,.016,min(border.x,border.y));
-  float body = neutralMaterial(pixel) * inFilm;
-  float midBody = neutralMaterial(middle);
-  float light = lightness(pixel);
-  if (inFilm>.01 && source.y>.13 && pixel.b<.56 && pixel.g<.35 && body<.93) {
-    float shade = max(submergedShadow(pixel,scene(source+vec2(.010,-.031))),
-                      submergedShadow(pixel,scene(source+vec2(-.009,.030))));
-    shade = max(shade, max(submergedShadow(pixel,scene(source+vec2(.021,.013))),
-                           submergedShadow(pixel,scene(source-vec2(.022,.011)))));
-    float deepSkin = (1.-smoothstep(.35,.56,pixel.b)) * smoothstep(.13,.24,source.y);
-    body = max(body,inFilm * shade * deepSkin);
+  // All decisions above the atlas lookup are constant across a character cell.
+  if (material > .24) {
+    float density = mix(1.-tone, .31+.69*tone, u_night);
+    code = dolphinGlyph(clamp(density + .12*(random-.5), 0., 1.), random);
+    float dx = luminance(right-left);
+    float dy = luminance(below-above);
+    if (max(abs(dx),abs(dy)) > .12 && material < .81 && random > .24) {
+      if (abs(dx) > 2.*abs(dy)) code = 124.;       // |
+      else if (abs(dy) > 2.*abs(dx)) code = 45.;  // -
+      else code = dx*dy > 0. ? 47. : 92.;         // / or backslash
+    }
+    // Silver highlights stay visible on paper; the night palette reaches white.
+    vec3 shadow = mix(vec3(.17,.20,.22), vec3(.47,.51,.54), u_night);
+    vec3 highlight = mix(vec3(.64,.67,.69), vec3(.96,.97,.98), u_night);
+    ink = mix(shadow, highlight, smoothstep(.02, 1., tone));
+    opacity = mix(.74, 1., smoothstep(.24,.67,material));
+  } else {
+    float level = mix(.12, smoothstep(.135,.40,luminance(mean)), inFilm);
+    float textureLevel = clamp(level + .23*(random-.5), 0., 1.);
+    code = waterGlyph(textureLevel, random);
+    vec3 deep = mix(vec3(.36,.61,.76), vec3(.30,.53,.66), u_night);
+    vec3 crest = mix(vec3(.57,.77,.87), vec3(.64,.83,.93), u_night);
+    ink = mix(deep, crest, level);
+    float keep = .29 + .59*level;
+    opacity = step(1.-keep, grain(cell+vec2(19.,31.))) * mix(.50,.84,level);
   }
-  float foam = smoothstep(.37,.68,pixel.g)
-             * smoothstep(.33,.70,pixel.r/(pixel.b+.01))
-             * smoothstep(.62,.87,pixel.g/(pixel.b+.01));
-  body = max(body,foam*inFilm);
-  float waterLevel = smoothstep(.12,.48,light);
-  float waterDepth = clamp(source.y, 0., 1.48);
-  float exterior = 1. - smoothstep(-.15, 0., min(border.x,border.y));
-  waterLevel = mix(waterLevel * (1.-.65*neutralMaterial(pixel)), .27, exterior);
 
-  float sun = clamp(.32 + .28*(1.-waterDepth) + .38*waterLevel, 0., 1.);
-  vec3 deep = mix(vec3(.555,.735,.806), vec3(.072,.135,.164), u_night);
-  vec3 shallow = mix(vec3(.858,.938,.960), vec3(.223,.333,.368), u_night);
-  vec3 water = mix(deep, shallow, sun);
-
-  float shimmer = smoothstep(.13,.48,lightness(middle));
-  float waterCode = 46.;
-  if (random < .15 * shimmer) waterCode = 126.;
-  else if (random < .34 * shimmer) waterCode = 58.;
-  else if (random > .77) waterCode = 39.;
-  float scatter = smoothstep(.55,.67,random + .35 * shimmer);
-  float wetInk = letterInk(waterCode, local) * scatter;
-  vec3 waterMark = mix(vec3(.31,.53,.62), vec3(.50,.62,.64), u_night);
-  water = mix(water, waterMark, wetInk * (.16+.21*shimmer) * (1.-.56*exterior));
-
-  vec3 colour = water;
-  if (body > .005) {
-    float tone = smoothstep(.085,.77,light);
-    float centerTone = smoothstep(.085,.77,lightness(middle));
-    float dx = lightness(scene(center+vec2(cellSpan.x*.56,0.))) - lightness(middle);
-    float dy = lightness(scene(center+vec2(0.,cellSpan.y*.56))) - lightness(middle);
-    float code = bodyLetter(mix(tone,centerTone,.78*midBody), dx, dy, random);
-    float ink = letterInk(code, local);
-    // A continuous silver wash carries the fine flukes between strokes.
-    // The photographic light still modulates each individual character.
-    float wash = .45 + .15 * abs(2.*tone-1.);
-    vec3 silverBody = silver(tone);
-    vec3 inkColour = silver(clamp(tone * 1.24 - .12, 0., 1.));
-    // The milky aerated water around a surfacing dolphin is a soft mass,
-    // with brighter character strokes catching its crests.
-    float froth = foam * smoothstep(.44,.75,light);
-    wash = mix(wash,.73,froth);
-    silverBody = mix(silverBody,vec3(.94,.963,.973),froth*.72);
-    inkColour = mix(inkColour,vec3(.996),froth);
-    vec3 printed = mix(mix(water, silverBody, wash), inkColour, ink);
-    colour = mix(water, printed, smoothstep(.025,.77,body));
-  }
-  gl_FragColor = vec4(colour,1.);
+  float index = code - 32.;
+  vec2 tile = vec2(mod(index,16.), floor(index/16.));
+  float glyph = texture2D(u_letters, (tile + clamp(fract(grid),.022,.978)) / vec2(16.,6.)).r;
+  gl_FragColor = vec4(ink, glyph * opacity);
 }

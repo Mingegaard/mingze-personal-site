@@ -1,3 +1,4 @@
+import { mountGlyphStill } from './dolphin-still.js';
 import filmUrl from './assets/dolphin/ocean.mp4';
 import stillUrl from './assets/dolphin/still.webp';
 import lettersUrl from './assets/dolphin/glyphs.png';
@@ -13,6 +14,8 @@ void main() {
   gl_Position = vec4(a_position, 0., 1.);
 }`;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+const cellSize = width => clamp(6.65 + (width - 520) / 1100, 6.5, 7.5);
 
 function camera(width, height, time) {
   const aspect = width / height;
@@ -113,7 +116,7 @@ function createRenderer(gl) {
         previousSource = source;
         previousTime = time;
       }
-      const cell = clamp(6.65 + (width - 520) / 1100, 6.5, 7.5);
+      const cell = cellSize(width);
       const [left, top, spanX, spanY] = camera(width, height, time);
       gl.uniform2f(uniforms.view, width, height);
       gl.uniform2f(uniforms.cell, cell, cell*1.5);
@@ -132,8 +135,8 @@ function createRenderer(gl) {
 }
 
 export function mountDolphinPlayer(canvas) {
-  const gl = canvas.getContext('webgl', { alpha:false, depth:false, stencil:false, antialias:false, powerPreference:'low-power' });
-  if (!gl) return { setTheme() {}, destroy() {} };
+  const gl = canvas.getContext('webgl', { alpha:true, premultipliedAlpha:false, depth:false, stencil:false, antialias:false, powerPreference:'low-power' });
+  if (!gl) return mountGlyphStill(canvas, stillUrl, camera, cellSize);
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
   const connection = navigator.connection;
   const video = document.createElement('video');
@@ -151,12 +154,29 @@ export function mountDolphinPlayer(canvas) {
   let hasVideoFrame = false;
   let frameTime = 0;
 
+  let fallback;
+  function showFallback() {
+    canvas.removeAttribute('data-playing');
+    if (destroyed || fallback) return;
+    const surface = document.createElement('canvas');
+    canvas.after(surface);
+    const portrait = mountGlyphStill(surface, stillUrl, camera, cellSize);
+    fallback = { surface, portrait };
+    portrait.setTheme(dark);
+  }
+  function clearFallback() {
+    if (!fallback) return;
+    fallback.portrait.destroy();
+    fallback.surface.remove();
+    fallback = null;
+  }
   const reduced = () => motion.matches || connection?.saveData;
   function paint() {
     if (destroyed || !renderer || !assetsReady || document.hidden) return;
     const film = hasVideoFrame && !reduced() && video.readyState >= 2;
     renderer.draw(canvas, film ? video : still, film ? frameTime : 0, dark);
     canvas.setAttribute('data-playing', '');
+    clearFallback();
   }
   function stopFrames() {
     if (callback === null) return;
@@ -204,7 +224,8 @@ export function mountDolphinPlayer(canvas) {
       renderer = createRenderer(gl);
       if (assetsReady) renderer.setLetters(letters);
     } catch {
-      renderer = null; // The native poster is already visible.
+      renderer = null;
+      showFallback();
     }
     paint();
     playback();
@@ -212,7 +233,7 @@ export function mountDolphinPlayer(canvas) {
   function contextLost(event) {
     event.preventDefault();
     renderer = null;
-    canvas.removeAttribute('data-playing');
+    showFallback();
     playback();
   }
   function failedVideo() {
@@ -241,12 +262,13 @@ export function mountDolphinPlayer(canvas) {
       renderer?.setLetters(letters);
       paint();
       playback();
-    }).catch(() => {});
+    }).catch(showFallback);
   }
   return {
-    setTheme(value) { dark = value; paint(); },
+    setTheme(value) { dark = value; fallback?.portrait.setTheme(value); paint(); },
     destroy() {
       destroyed = true;
+      clearFallback();
       stopFrames();
       resize.disconnect();
       canvas.removeEventListener('webglcontextlost', contextLost);
